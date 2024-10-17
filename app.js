@@ -364,45 +364,6 @@ function createDistributionChart(canvasId, data) {
     });
 }
 
-function createFloatingCell(name, formula, results) {
-    const values = results[name];
-    const sortedValues = values.sort((a, b) => a - b);
-    const lowBound = sortedValues[Math.floor(values.length * 0.05)];
-    const highBound = sortedValues[Math.floor(values.length * 0.95)];
-    const mean = values.reduce((a, b) => a + b) / values.length;
-    const median = sortedValues[Math.floor(values.length / 2)];
-
-    return `
-        <div class="floating-cell" id="floating-${name}">
-            <h3>${name}</h3>
-            <p>Formula: ${formula.repr()}</p>
-            <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
-            <p>Mean: ${mean.toFixed(2)}</p>
-            <p>Median: ${median.toFixed(2)}</p>
-        </div>
-    `;
-}
-
-function calculateNonOverlappingPositions(elements) {
-    const positions = new Map();
-    const sorted = [...elements].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-
-    sorted.forEach(element => {
-        let top = element.getBoundingClientRect().top - element.offsetParent.getBoundingClientRect().top;
-        const height = element.offsetHeight;
-
-        for (const [otherElement, otherPos] of positions) {
-            if (top < otherPos.bottom && top + height > otherPos.top) {
-                top = otherPos.bottom + 10; // Add some padding
-            }
-        }
-
-        positions.set(element, { top, bottom: top + height });
-    });
-
-    return positions;
-}
-
 function updateView() {
     const input = rawInput.value;
     const cells = parseInput(input);
@@ -419,94 +380,130 @@ function updateView() {
     leftColumn.innerHTML = '';
     rightColumn.innerHTML = '';
 
-    const chartContainers = [];
-    const floatingCells = [];
+    const gap = 10;
+    const cellElements = Object.keys(results).map(name => document.getElementById(`cell-${name}`));
+    const centerColumnRect = centerColumn.getBoundingClientRect();
 
-    Object.keys(results).forEach((name, index) => {
-        const cell = document.getElementById(`cell-${name}`);
-        if (cell) {
+    const clickActiveCells = {};
+    const hoverActiveCells = {};
+    const chartContainers = {};
+    const floatingCells = {};
+
+    function createElementsForCell(name) {
+        if (!chartContainers[name]) {
             const chartContainer = document.createElement('div');
             chartContainer.className = 'chart-container';
             chartContainer.innerHTML = `<canvas id="chart-${name}"></canvas>`;
             leftColumn.appendChild(chartContainer);
-            chartContainers.push(chartContainer);
+            chartContainers[name] = chartContainer;
 
             createDistributionChart(`chart-${name}`, results[name]);
-
-            const floatingCell = createFloatingCell(name, cells[name], results);
-            rightColumn.innerHTML += floatingCell;
-            floatingCells.push(document.getElementById(`floating-${name}`));
-
-            let isActive = false;
-
-            function toggleActive() {
-                isActive = !isActive;
-                chartContainer.classList.toggle('active', isActive);
-                document.getElementById(`floating-${name}`).classList.toggle('active', isActive);
-                if (isActive) {
-                    drawLines();
-                } else {
-                    removeLines();
-                }
-            }
-
-            function drawLines() {
-                removeLines(); // Remove any existing lines first
-
-                const cellRect = cell.getBoundingClientRect();
-                const chartRect = chartContainer.getBoundingClientRect();
-                const floatingCellElement = document.getElementById(`floating-${name}`);
-                const floatingCellRect = floatingCellElement.getBoundingClientRect();
-
-                const leftLine = document.createElement('div');
-                leftLine.className = 'link-line';
-                leftLine.style.width = `${cellRect.left - chartRect.right}px`;
-                leftLine.style.left = `${chartRect.right}px`;
-                leftLine.style.top = `${cellRect.top + window.scrollY + cellRect.height / 2}px`;
-                document.body.appendChild(leftLine);
-
-                const rightLine = document.createElement('div');
-                rightLine.className = 'link-line';
-                rightLine.style.width = `${floatingCellRect.left - cellRect.right}px`;
-                rightLine.style.left = `${cellRect.right}px`;
-                rightLine.style.top = `${cellRect.top + window.scrollY + cellRect.height / 2}px`;
-                document.body.appendChild(rightLine);
-            }
-
-            function removeLines() {
-                document.querySelectorAll('.link-line').forEach(line => line.remove());
-            }
-
-            cell.addEventListener('click', toggleActive);
-            cell.addEventListener('mouseover', () => {
-                if (!isActive) {
-                    chartContainer.classList.add('active');
-                    document.getElementById(`floating-${name}`).classList.add('active');
-                    drawLines();
-                }
-            });
-            cell.addEventListener('mouseout', () => {
-                if (!isActive) {
-                    chartContainer.classList.remove('active');
-                    document.getElementById(`floating-${name}`).classList.remove('active');
-                    removeLines();
-                }
-            });
         }
-    });
 
-    // Calculate non-overlapping positions
-    const chartPositions = calculateNonOverlappingPositions(chartContainers);
-    const floatingCellPositions = calculateNonOverlappingPositions(floatingCells);
+        if (!floatingCells[name]) {
+            const floatingCell = document.createElement('div');
+            floatingCell.className = 'floating-cell';
+            floatingCell.id = `floating-${name}`;
+            floatingCell.innerHTML = createFloatingCellContent(name, cells[name], results);
+            rightColumn.appendChild(floatingCell);
+            floatingCells[name] = floatingCell;
+        }
+    }
 
-    // Apply calculated positions
-    chartPositions.forEach((pos, element) => {
-        element.style.top = `${pos.top}px`;
-    });
+    function removeElementsForCell(name) {
+        if (chartContainers[name]) {
+            chartContainers[name].remove();
+            delete chartContainers[name];
+        }
+        if (floatingCells[name]) {
+            floatingCells[name].remove();
+            delete floatingCells[name];
+        }
+    }
 
-    floatingCellPositions.forEach((pos, element) => {
-        element.style.top = `${pos.top}px`;
+    function toggleCellClickActive(name) {
+        clickActiveCells[name] = !clickActiveCells[name];
+        hoverActiveCells[name] = false;  // Unset hover state when toggling click state
+        updateCellVisibility(name);
+        positionAllElements();
+    }
+
+    function setCellHoverActive(name, active) {
+        hoverActiveCells[name] = active;
+        updateCellVisibility(name);
+        positionAllElements();
+    }
+
+    function updateCellVisibility(name) {
+        if (clickActiveCells[name] || hoverActiveCells[name]) {
+            createElementsForCell(name);
+        } else {
+            removeElementsForCell(name);
+        }
+    }
+
+    function positionAllElements() {
+        let nextChartY = 0;
+        let nextBoxY = 0;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        cellElements.forEach(cell => {
+            const name = cell.id.replace('cell-', '');
+            if (clickActiveCells[name] || hoverActiveCells[name]) {
+                const cellRect = cell.getBoundingClientRect();
+                const cellCenterY = cellRect.top + scrollTop + cellRect.height / 2 - centerColumnRect.top;
+
+                const chartContainer = chartContainers[name];
+                const floatingCell = floatingCells[name];
+
+                if (chartContainer && floatingCell) {
+                    const chartHeight = 150;
+                    const chartTop = Math.max(cellCenterY - chartHeight / 2, nextChartY);
+                    chartContainer.style.top = `${chartTop}px`;
+                    chartContainer.style.height = `${chartHeight}px`;
+                    nextChartY = chartTop + chartHeight + gap;
+
+                    const boxHeight = floatingCell.offsetHeight;
+                    const boxTop = Math.max(cellCenterY - boxHeight / 2, nextBoxY);
+                    floatingCell.style.top = `${boxTop}px`;
+                    nextBoxY = boxTop + boxHeight + gap;
+                }
+            }
+        });
+    }
+
+    cellElements.forEach(cell => {
+        const name = cell.id.replace('cell-', '');
+
+        cell.addEventListener('click', () => {
+            toggleCellClickActive(name);
+        });
+
+        cell.addEventListener('mouseenter', () => {
+            setCellHoverActive(name, true);
+        });
+
+        cell.addEventListener('mouseleave', () => {
+            setCellHoverActive(name, false);
+        });
     });
+}
+
+function createFloatingCellContent(name, formula, results) {
+    const values = results[name];
+    const sortedValues = values.sort((a, b) => a - b);
+    const lowBound = sortedValues[Math.floor(values.length * 0.05)];
+    const highBound = sortedValues[Math.floor(values.length * 0.95)];
+    const mean = values.reduce((a, b) => a + b) / values.length;
+    const median = sortedValues[Math.floor(values.length / 2)];
+
+    return `
+        <h3>${name}</h3>
+        <p>Formula: ${formula.repr()}</p>
+        <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
+        <p>Mean: ${mean.toFixed(2)}</p>
+        <p>Median: ${median.toFixed(2)}</p>
+    `;
 }
 
 const rawInput = document.getElementById('raw-input');
