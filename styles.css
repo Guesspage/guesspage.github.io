@@ -1,0 +1,34 @@
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 20px;
+}
+
+header {
+    margin-bottom: 20px;
+}
+
+#menu-bar {
+    margin-bottom: 10px;
+}
+
+#menu-bar button {
+    padding: 5px 10px;
+    margin-right: 5px;
+}
+
+#raw-editor, #view-mode {
+    width: 100%;
+    min-height: 400px;
+}
+
+#raw-input {
+    width: 100%;
+    min-height: 400px;
+    font-family: monospace;
+}
+
+.hidden {
+    display: none;
+}
