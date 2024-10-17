@@ -32,3 +32,74 @@ header {
 .hidden {
     display: none;
 }
+
+#view-mode {
+    display: flex;
+    justify-content: space-between;
+}
+
+#left-column, #right-column {
+    width: 20%;
+    position: relative;
+    height: 100%;
+}
+
+#center-column {
+    width: 60%;
+    padding: 0 20px;
+}
+
+.cell {
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 2px 0;
+    background-color: #e6f3ff;
+    cursor: pointer;
+}
+
+.cell-range {
+    font-size: 0.9em;
+}
+
+.chart-container {
+    width: 100%;
+    height: 150px;
+    margin-bottom: 10px;
+    display: none;
+    position: absolute;
+    left: 0;
+}
+
+.floating-cell {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 10;
+    width: calc(100% - 20px); /* Adjust width to account for padding */
+    display: none;
+    left: 0;
+}
+
+.floating-cell h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.floating-cell p {
+    margin: 5px 0;
+}
+
+.link-line {
+    position: absolute;
+    border-top: 1px solid #ccc;
+    z-index: 5;
+}
+
+.active {
+    display: block;
+}

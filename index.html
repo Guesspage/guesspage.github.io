@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Probabilistic Reasoning Webapp</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
@@ -18,7 +19,11 @@
         <div id="raw-editor">
             <textarea id="raw-input"></textarea>
         </div>
-        <div id="view-mode"></div>
+        <div id="view-mode" class="hidden">
+            <div id="left-column"></div>
+            <div id="center-column"></div>
+            <div id="right-column"></div>
+        </div>
     </main>
     <script src="app.js"></script>
 </body>
