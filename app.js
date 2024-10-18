@@ -621,17 +621,15 @@ async function handleSave() {
     }
 }
 
-function checkURLForFileId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const fileId = urlParams.get('fileId');
-    if (fileId) {
-        loadFile(fileId).then(content => {
-            if (content) {
-                rawInput.value = content;
-                currentFileId = fileId;
-                updateView();
-            }
-        });
+async function handleLoad(fileId) {
+    try {
+        const content = await loadFileFromId(fileId);
+        rawInput.value = content;
+        currentFileId = fileId;
+        updateView();
+    } catch (error) {
+        console.error('Error loading file:', error);
+        showNotification('Error loading file from Google Drive', 'error');
     }
 }
 
@@ -669,14 +667,22 @@ rawInput.addEventListener('input', debounce(() => {
 }, 1000));
 
 window.addEventListener('load', () => {
-    const savedContent = loadFromLocalStorage();
-    if (savedContent && savedContent !== rawInput.value) {
-        if (confirm('You have unsaved changes. Would you like to recover them?')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fileId = urlParams.get('fileId');
+    if (fileId) {
+        handleLoad(fileId);
+    } else {
+        const savedContent = loadFromLocalStorage();
+        if (savedContent) {
             rawInput.value = savedContent;
             updateView();
         }
     }
-    checkURLForFileId();
+
+    // Initialize Google Drive integration
+    initializeGoogleDrive().catch(error => {
+        console.error("Error initializing Google Drive integration:", error);
+    });
 });
 
 window.addEventListener('beforeunload', (event) => {

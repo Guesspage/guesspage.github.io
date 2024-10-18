@@ -7,7 +7,6 @@ const GUESSBOOK_FOLDER_NAME = 'Guessbook Files';
 
 let tokenClient;
 let accessToken = null;
-let currentFileId = null;
 
 async function initializeGoogleDrive() {
     console.log("Initializing Google Drive integration");
@@ -32,13 +31,6 @@ async function initializeGoogleDrive() {
         console.log("Restored session from saved token");
     } else {
         await updateSigninStatus(false);
-    }
-
-    // Check for file ID in URL and load if present
-    const urlParams = new URLSearchParams(window.location.search);
-    const fileId = urlParams.get('fileId');
-    if (fileId) {
-        await loadFileFromId(fileId);
     }
 }
 
@@ -146,11 +138,11 @@ async function saveFile(content) {
         const result = await response.json();
 
         if (response.ok) {
-            currentFileId = result.id;
-            updateUrlWithFileId(currentFileId);
-            await makeFilePublic(currentFileId);
+            const fileId = result.id;
+            updateUrlWithFileId(fileId);
+            await makeFilePublic(fileId);
             showNotification('File saved successfully');
-            return currentFileId;
+            return fileId;
         } else {
             throw new Error(result.error.message);
         }
@@ -185,16 +177,15 @@ async function loadFileFromId(fileId) {
 
         if (response.ok) {
             const content = await response.text();
-            document.getElementById('raw-input').value = content;
-            currentFileId = fileId;
             showNotification('File loaded successfully');
-            updateView(); // Assuming this function exists to update the view
+            return content;
         } else {
             const error = await response.json();
             throw new Error(error.error.message);
         }
     } catch (error) {
         showNotification('Error loading file: ' + error.message, 'error');
+        throw error;
     }
 }
 
@@ -270,6 +261,3 @@ function showNotification(message, type = 'success') {
         notification.style.display = 'none';
     }, 3000);
 }
-
-// Initialize Google Drive integration when the page loads
-window.onload = initializeGoogleDrive;
