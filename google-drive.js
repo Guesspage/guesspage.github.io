@@ -41,6 +41,7 @@ async function initializeGapiClient() {
             apiKey: API_KEY,
             discoveryDocs: DISCOVERY_DOCS,
         });
+        gapi.auth.setToken({ access_token: accessToken });
         console.log("GAPI client initialized successfully");
     } catch (error) {
         console.error("Error initializing GAPI client:", error);
@@ -57,6 +58,7 @@ async function updateSigninStatus(isSignedIn) {
         const isValid = await validateToken(accessToken);
         if (isValid) {
             console.log("User is signed in with a valid token");
+            gapi.auth.setToken({ access_token: accessToken });
             authStatus.textContent = 'Signed in';
             saveBtn.disabled = false;
             signinBtn.textContent = 'Sign Out';
@@ -117,7 +119,6 @@ function clearTokenFromLocalStorage() {
     localStorage.removeItem('guessbook_token_timestamp');
 }
 
-
 async function saveFile(content) {
     if (!accessToken) {
         showNotification('Please sign in to save', 'error');
@@ -156,7 +157,7 @@ async function saveFile(content) {
 
         if (response.ok) {
             await makeFilePublic(result.id);
-            showNotification('File saved successfully');
+            showNotification('File saved and made public successfully');
             return result.id;
         } else {
             throw new Error(result.error.message);
@@ -168,17 +169,23 @@ async function saveFile(content) {
 }
 
 async function makeFilePublic(fileId) {
+    if (!accessToken) {
+        throw new Error('Not authenticated');
+    }
+
     try {
         await gapi.client.drive.permissions.create({
             fileId: fileId,
             resource: {
                 role: 'reader',
                 type: 'anyone'
-            }
+            },
+            auth: accessToken
         });
         console.log('File made public');
     } catch (error) {
         console.error('Error making file public:', error);
+        throw error;
     }
 }
 
@@ -187,7 +194,7 @@ async function loadFileFromId(fileId) {
         const response = await fetch(
             `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
             {
-                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
+                method: 'GET'
             }
         );
 
@@ -212,6 +219,10 @@ function updateUrlWithFileId(fileId) {
 }
 
 async function getGuessbookFolder() {
+    if (!accessToken) {
+        throw new Error('Not authenticated');
+    }
+
     try {
         // Attempt to create the folder
         let folderMetadata = {
@@ -220,7 +231,8 @@ async function getGuessbookFolder() {
         };
         let folderResponse = await gapi.client.drive.files.create({
             resource: folderMetadata,
-            fields: 'id'
+            fields: 'id',
+            auth: accessToken
         });
         console.log('Guessbook folder created:', folderResponse.result.id);
         return folderResponse.result.id;
@@ -233,7 +245,8 @@ async function getGuessbookFolder() {
                 let response = await gapi.client.drive.files.list({
                     q: `mimeType='application/vnd.google-apps.folder' and name='${GUESSBOOK_FOLDER_NAME}' and trashed=false`,
                     fields: 'files(id, name)',
-                    spaces: 'drive'
+                    spaces: 'drive',
+                    auth: accessToken
                 });
                 let folder = response.result.files[0];
                 if (folder) {
