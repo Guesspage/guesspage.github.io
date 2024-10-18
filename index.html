@@ -13,24 +13,25 @@
     <header>
         <h1>Guesspage</h1>
         <div id="menu-bar">
-            <button id="raw-mode-btn">Raw</button>
-            <button id="view-mode-btn">View</button>
-            <button id="save-btn" disabled>Save</button>
+            <button id="raw-mode-btn" aria-pressed="true">Raw</button>
+            <button id="view-mode-btn" aria-pressed="false">View</button>
+            <button id="save-btn" disabled aria-disabled="true">Save</button>
             <button id="signin-btn">Sign In</button>
-            <div id="auth-status"></div>
+            <div id="auth-status" aria-live="polite"></div>
+            <button id="theme-toggle" aria-label="Toggle dark mode">🌓</button>
         </div>
     </header>
     <main>
         <div id="raw-editor">
-            <textarea id="raw-input"></textarea>
+            <textarea id="raw-input" aria-label="Raw input"></textarea>
         </div>
         <div id="view-mode" class="hidden">
-            <div id="left-column"></div>
-            <div id="center-column"></div>
-            <div id="right-column"></div>
+            <div id="left-column" aria-label="Charts"></div>
+            <div id="center-column" aria-label="Rendered content"></div>
+            <div id="right-column" aria-label="Cell details"></div>
         </div>
     </main>
-    <div id="file-browser" class="modal hidden">
+    <div id="file-browser" class="modal hidden" aria-hidden="true">
         <div class="modal-content">
             <h2>Select a file</h2>
             <input type="text" id="file-search" placeholder="Search files...">
@@ -38,8 +39,7 @@
             <button id="close-file-browser">Close</button>
         </div>
     </div>
-    <div id="notification" class="hidden"></div>
-    <script src="app.js"></script>
-    <script src="google-drive.js"></script>
+    <div id="notification" class="hidden" aria-live="assertive"></div>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

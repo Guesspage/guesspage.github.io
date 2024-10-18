@@ -1,6 +1,7 @@
-// Google Drive API configuration
+import { showNotification } from './utils.js';
+
 const CLIENT_ID = '448369537106-vep7t49jrduqkps8qbinjndc1lqhoa0j.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyB-050uA1nT5qf3OGXjqN9nhNJ7bzSDKiA'; // ggignore
+const API_KEY = 'AIzaSyB-050uA1nT5qf3OGXjqN9nhNJ7bzSDKiA';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const GUESSBOOK_FOLDER_NAME = 'Guessbook Files';
@@ -8,7 +9,7 @@ const GUESSBOOK_FOLDER_NAME = 'Guessbook Files';
 let tokenClient;
 let accessToken = null;
 
-async function initializeGoogleDrive() {
+export async function initializeGoogleDrive() {
     console.log("Initializing Google Drive integration");
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
@@ -61,6 +62,7 @@ async function updateSigninStatus(isSignedIn) {
             gapi.auth.setToken({ access_token: accessToken });
             authStatus.textContent = 'Signed in';
             saveBtn.disabled = false;
+            saveBtn.setAttribute('aria-disabled', 'false');
             signinBtn.textContent = 'Sign Out';
         } else {
             console.log("Token is invalid, signing out");
@@ -73,6 +75,7 @@ async function updateSigninStatus(isSignedIn) {
         console.log("User is signed out");
         authStatus.textContent = 'Signed out';
         saveBtn.disabled = true;
+        saveBtn.setAttribute('aria-disabled', 'true');
         signinBtn.textContent = 'Sign In';
         accessToken = null;
     }
@@ -119,6 +122,21 @@ function clearTokenFromLocalStorage() {
     localStorage.removeItem('guessbook_token_timestamp');
 }
 
+export async function handleSave() {
+    const content = document.getElementById('raw-input').value;
+    try {
+        const fileId = await saveFile(content);
+        if (fileId) {
+            showNotification('File saved successfully to Google Drive');
+        } else {
+            throw new Error('Failed to save file to Google Drive');
+        }
+    } catch (error) {
+        console.error('Error saving to Google Drive:', error);
+        showNotification('Error saving to Google Drive. Changes saved locally.', 'error');
+    }
+}
+
 async function saveFile(content) {
     if (!accessToken) {
         showNotification('Please sign in to save', 'error');
@@ -143,11 +161,9 @@ async function saveFile(content) {
         form.append('file', new Blob([content], {type: 'application/json'}));
 
         const response = await fetch(
-            currentFileId
-                ? `https://www.googleapis.com/upload/drive/v3/files/${currentFileId}?uploadType=multipart`
-                : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
             {
-                method: currentFileId ? 'PATCH' : 'POST',
+                method: 'POST',
                 headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
                 body: form,
             }
@@ -157,8 +173,7 @@ async function saveFile(content) {
 
         if (response.ok) {
             await makeFilePublic(result.id);
-            updateUrlWithFileId(result.id);  // Update URL with file ID
-            showNotification('File saved and made public successfully');
+            updateUrlWithFileId(result.id);
             return result.id;
         } else {
             throw new Error(result.error.message);
@@ -189,6 +204,21 @@ async function makeFilePublic(fileId) {
     }
 }
 
+export async function handleLoad(fileId) {
+    try {
+        const content = await loadFileFromId(fileId);
+        if (content) {
+            document.getElementById('raw-input').value = content;
+            showNotification('File loaded successfully');
+        } else {
+            throw new Error('No content received from file');
+        }
+    } catch (error) {
+        console.error('Error loading file:', error);
+        showNotification('Error loading file: ' + error.message, 'error');
+    }
+}
+
 async function loadFileFromId(fileId) {
     try {
         const response = await gapi.client.drive.files.get({
@@ -197,9 +227,7 @@ async function loadFileFromId(fileId) {
         });
 
         if (response.status === 200) {
-            const content = response.body;
-            console.log('File loaded successfully');
-            return content;
+            return response.body;
         } else {
             throw new Error('Error loading file: ' + response.status);
         }
@@ -252,7 +280,7 @@ async function getGuessbookFolder() {
     }
 }
 
-async function handleAuthClick() {
+export async function handleAuthClick() {
     console.log("Auth button clicked, current accessToken:", accessToken);
     if (accessToken === null) {
         console.log("Requesting access token");
@@ -269,52 +297,4 @@ async function handleAuthClick() {
             });
         });
     }
-}
-
-async function handleLoad(fileId) {
-    try {
-        const content = await loadFileFromId(fileId);
-        if (content) {
-            rawInput.value = content;
-            currentFileId = fileId;
-            updateView();
-            showNotification('File loaded successfully');
-        } else {
-            throw new Error('No content received from file');
-        }
-    } catch (error) {
-        console.error('Error loading file:', error);
-        showNotification('Error loading file: ' + error.message, 'error');
-    }
-}
-
-async function handleSave() {
-    const content = rawInput.value;
-    saveToLocalStorage();
-
-    try {
-        const fileId = await saveFile(content);
-        if (fileId) {
-            currentFileId = fileId;
-            showNotification('File saved successfully to Google Drive');
-        } else {
-            throw new Error('Failed to save file to Google Drive');
-        }
-    } catch (error) {
-        console.error('Error saving to Google Drive:', error);
-        showNotification('Error saving to Google Drive. Changes saved locally.', 'error');
-    }
-}
-
-document.getElementById('signin-btn').addEventListener('click', handleAuthClick);
-document.getElementById('save-btn').addEventListener('click', handleSave);
-
-function showNotification(message, type = 'success') {
-    const notification = document.getElementById('notification');
-    notification.textContent = message;
-    notification.style.backgroundColor = type === 'success' ? '#4CAF50' : '#f44336';
-    notification.style.display = 'block';
-    setTimeout(() => {
-        notification.style.display = 'none';
-    }, 3000);
 }
