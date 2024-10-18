@@ -2,11 +2,12 @@ body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     margin: 0;
-    padding: 20px;
+    padding: 0;
 }
 
 header {
-    margin-bottom: 20px;
+    padding: 20px;
+    background-color: #f4f4f4;
 }
 
 #menu-bar {
@@ -18,9 +19,14 @@ header {
     margin-right: 5px;
 }
 
+main {
+    display: flex;
+    position: relative;
+    min-height: calc(100vh - 100px); /* Adjust based on your header height */
+}
+
 #raw-editor, #view-mode {
     width: 100%;
-    min-height: 400px;
 }
 
 #raw-input {
@@ -33,19 +39,27 @@ header {
     display: none;
 }
 
-#view-mode {
-    display: flex;
-    justify-content: space-between;
+#left-column, #right-column {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 20%;
+    overflow-y: auto;
 }
 
-#left-column, #right-column {
-    width: 20%;
-    position: relative;
+#left-column {
+    left: 0;
+}
+
+#right-column {
+    right: 0;
 }
 
 #center-column {
-    width: 60%;
-    padding: 0 20px;
+    margin: 0 22%; /* Slightly more than the width of the side columns */
+    width: 56%; /* 100% - 2 * 22% */
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .cell {
@@ -78,7 +92,7 @@ header {
     padding: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     z-index: 10;
-    width: calc(100% - 20px);
+    width: calc(100% - 20px); /* Adjust for padding */
     left: 0;
 }
 
@@ -89,10 +103,4 @@ header {
 
 .floating-cell p {
     margin: 5px 0;
-}
-
-.link-line {
-    position: absolute;
-    border-top: 1px solid #ccc;
-    z-index: 5;
 }

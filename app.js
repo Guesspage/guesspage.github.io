@@ -364,6 +364,93 @@ function createDistributionChart(canvasId, data) {
     });
 }
 
+function createFloatingCellContent(name, formula, results) {
+    const values = results[name];
+    const sortedValues = values.sort((a, b) => a - b);
+    const lowBound = sortedValues[Math.floor(values.length * 0.05)];
+    const highBound = sortedValues[Math.floor(values.length * 0.95)];
+    const mean = values.reduce((a, b) => a + b) / values.length;
+    const median = sortedValues[Math.floor(values.length / 2)];
+
+    return `
+        <h3>${name}</h3>
+        <p>Formula: ${formula.repr()}</p>
+        <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
+        <p>Mean: ${mean.toFixed(2)}</p>
+        <p>Median: ${median.toFixed(2)}</p>
+    `;
+}
+
+function createArrowsSVG() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const viewMode = document.getElementById('view-mode');
+    const viewModeRect = viewMode.getBoundingClientRect();
+
+    svg.style.position = "absolute";
+    svg.style.top = "0";
+    svg.style.left = "0";
+    svg.style.width = "100%";
+    svg.style.height = "100%";
+    svg.style.pointerEvents = "none";
+    svg.style.zIndex = "0"; // Ensure it's below other elements
+
+    viewMode.appendChild(svg); // Append to view-mode instead of body
+
+    return svg;
+}
+
+function drawArrow(svg, startEl, endEl, isLeftSide) {
+    const startRect = startEl.getBoundingClientRect();
+    const endRect = endEl.getBoundingClientRect();
+    const viewAreaRect = document.getElementById('view-mode').getBoundingClientRect();
+
+    const start = {
+        x: startRect.left + startRect.width / 2,
+        y: startRect.top - viewAreaRect.top + startRect.height / 2
+    };
+
+    let end = {
+        x: isLeftSide ? endRect.right : endRect.left,
+        y: endRect.top - viewAreaRect.top + endRect.height / 2
+    };
+
+    // Adjust end point to prevent overlap with arrowhead
+    if (isLeftSide) {
+        end.x -= 5; // Move 5px to the left for left-side arrows
+    } else {
+        end.x += 5; // Move 5px to the right for right-side arrows
+    }
+
+    const midX = (start.x + end.x) / 2;
+
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const path = `M ${start.x},${start.y}
+                  C ${midX},${start.y} ${midX},${end.y} ${end.x},${end.y}`;
+    arrow.setAttribute("d", path);
+    arrow.setAttribute("fill", "none");
+    arrow.setAttribute("stroke", "rgba(200, 200, 200, 0.3)");
+    arrow.setAttribute("stroke-width", "10");
+    arrow.setAttribute("marker-end", "url(#arrowhead)");
+    svg.appendChild(arrow);
+}
+
+function createArrowheadMarker(svg) {
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    marker.setAttribute("id", "arrowhead");
+    marker.setAttribute("markerWidth", "5");
+    marker.setAttribute("markerHeight", "4");
+    marker.setAttribute("refX", "0");
+    marker.setAttribute("refY", "2");
+    marker.setAttribute("orient", "auto");
+    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    polygon.setAttribute("points", "0 0, 3 2, 0 4");
+    polygon.setAttribute("fill", "rgba(200, 200, 200, 0.3)");
+    marker.appendChild(polygon);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+}
+
 function updateView() {
     const input = rawInput.value;
     const cells = parseInput(input);
@@ -380,10 +467,11 @@ function updateView() {
     leftColumn.innerHTML = '';
     rightColumn.innerHTML = '';
 
+    const arrowsSVG = createArrowsSVG();
+    createArrowheadMarker(arrowsSVG);
+
     const gap = 10;
     const cellElements = Object.keys(results).map(name => document.getElementById(`cell-${name}`));
-    const centerColumnRect = centerColumn.getBoundingClientRect();
-
     const clickActiveCells = {};
     const hoverActiveCells = {};
     const chartContainers = {};
@@ -445,13 +533,18 @@ function updateView() {
     function positionAllElements() {
         let nextChartY = 0;
         let nextBoxY = 0;
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        arrowsSVG.innerHTML = ''; // Clear existing arrows
+        createArrowheadMarker(arrowsSVG); // Re-add the arrowhead marker
+
+        // we assume all columns start at the same height for simplicity
+        const viewAreaRect = document.getElementById('view-mode').getBoundingClientRect();
 
         cellElements.forEach(cell => {
             const name = cell.id.replace('cell-', '');
             if (clickActiveCells[name] || hoverActiveCells[name]) {
                 const cellRect = cell.getBoundingClientRect();
-                const cellCenterY = cellRect.top + scrollTop + cellRect.height / 2 - centerColumnRect.top;
+                const cellTop = cellRect.top - viewAreaRect.top;
+                const cellCenterY = cellTop + cellRect.height / 2;
 
                 const chartContainer = chartContainers[name];
                 const floatingCell = floatingCells[name];
@@ -467,10 +560,15 @@ function updateView() {
                     const boxTop = Math.max(cellCenterY - boxHeight / 2, nextBoxY);
                     floatingCell.style.top = `${boxTop}px`;
                     nextBoxY = boxTop + boxHeight + gap;
+
+                    // Draw arrows
+                    drawArrow(arrowsSVG, cell, chartContainer, true);
+                    drawArrow(arrowsSVG, cell, floatingCell, false);
                 }
             }
         });
     }
+
 
     cellElements.forEach(cell => {
         const name = cell.id.replace('cell-', '');
@@ -487,23 +585,6 @@ function updateView() {
             setCellHoverActive(name, false);
         });
     });
-}
-
-function createFloatingCellContent(name, formula, results) {
-    const values = results[name];
-    const sortedValues = values.sort((a, b) => a - b);
-    const lowBound = sortedValues[Math.floor(values.length * 0.05)];
-    const highBound = sortedValues[Math.floor(values.length * 0.95)];
-    const mean = values.reduce((a, b) => a + b) / values.length;
-    const median = sortedValues[Math.floor(values.length / 2)];
-
-    return `
-        <h3>${name}</h3>
-        <p>Formula: ${formula.repr()}</p>
-        <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
-        <p>Mean: ${mean.toFixed(2)}</p>
-        <p>Median: ${median.toFixed(2)}</p>
-    `;
 }
 
 const rawInput = document.getElementById('raw-input');
