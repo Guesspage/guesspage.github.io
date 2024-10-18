@@ -608,15 +608,17 @@ function updateURLWithFileId(fileId) {
 async function handleSave() {
     const content = rawInput.value;
     saveToLocalStorage();
-    const fileId = await saveFile(content, currentFileId);
-    if (fileId) {
-        currentFileId = fileId;
-        updateURLWithFileId(fileId);
-    }
-}
 
-function handleLoad() {
-    showFileBrowser();
+    try {
+        const fileId = await saveFile(content);
+        if (fileId) {
+            currentFileId = fileId;
+            showNotification('File saved successfully to Google Drive');
+        }
+    } catch (error) {
+        console.error('Error saving to Google Drive:', error);
+        showNotification('Error saving to Google Drive. Changes saved locally.', 'error');
+    }
 }
 
 function checkURLForFileId() {
@@ -661,7 +663,6 @@ function switchToViewMode() {
 }
 
 document.getElementById('save-btn').addEventListener('click', handleSave);
-document.getElementById('load-btn').addEventListener('click', handleLoad);
 
 rawInput.addEventListener('input', debounce(() => {
     saveToLocalStorage();
