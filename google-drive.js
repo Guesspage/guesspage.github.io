@@ -1,6 +1,6 @@
 // Google Drive API configuration
 const CLIENT_ID = '448369537106-vep7t49jrduqkps8qbinjndc1lqhoa0j.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyB-050uA1nT5qf3OGXjqN9nhNJ7bzSDKiA';
+const API_KEY = 'AIzaSyB-050uA1nT5qf3OGXjqN9nhNJ7bzSDKiA'; // ggignore
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
