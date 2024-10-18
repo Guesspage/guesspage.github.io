@@ -7,19 +7,26 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 let tokenClient;
 let accessToken = null;
 
-function initializeGoogleDrive() {
+async function initializeGoogleDrive() {
     console.log("Initializing Google Drive integration");
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: (tokenResponse) => {
-            console.log("Token received:", tokenResponse);
-            accessToken = tokenResponse.access_token;
-            updateSigninStatus(true);
-        },
+        callback: '' // We'll handle the callback in handleAuthClick
     });
 
-    gapi.load('client', initializeGapiClient);
+    await new Promise((resolve) => gapi.load('client', resolve));
+    await initializeGapiClient();
+
+    // Check for saved token
+    const savedToken = loadTokenFromLocalStorage();
+    if (savedToken) {
+        accessToken = savedToken;
+        await updateSigninStatus(true);
+        console.log("Restored session from saved token");
+    } else {
+        await updateSigninStatus(false);
+    }
 }
 
 async function initializeGapiClient() {
@@ -35,32 +42,77 @@ async function initializeGapiClient() {
     }
 }
 
-function updateSigninStatus(isSignedIn) {
+async function updateSigninStatus(isSignedIn) {
     console.log("Updating signin status:", isSignedIn);
     const authStatus = document.getElementById('auth-status');
     const saveBtn = document.getElementById('save-btn');
     const loadBtn = document.getElementById('load-btn');
+    const signinBtn = document.getElementById('signin-btn');
 
-    if (isSignedIn) {
-        console.log("User is signed in");
-        authStatus.textContent = 'Signed in';
-        saveBtn.disabled = false;
-        loadBtn.disabled = false;
+    if (isSignedIn && accessToken) {
+        const isValid = await validateToken(accessToken);
+        if (isValid) {
+            console.log("User is signed in with a valid token");
+            authStatus.textContent = 'Signed in';
+            saveBtn.disabled = false;
+            loadBtn.disabled = false;
+            signinBtn.textContent = 'Sign Out';
+        } else {
+            console.log("Token is invalid, signing out");
+            accessToken = null;
+            clearTokenFromLocalStorage();
+            await updateSigninStatus(false);
+            return; // Exit here as we're calling updateSigninStatus again
+        }
     } else {
         console.log("User is signed out");
         authStatus.textContent = 'Signed out';
         saveBtn.disabled = true;
         loadBtn.disabled = true;
+        signinBtn.textContent = 'Sign In';
+        accessToken = null; // Ensure token is cleared
     }
 }
 
-function handleAuthClick() {
-    if (accessToken === null) {
-        tokenClient.requestAccessToken();
-    } else {
-        accessToken = null;
-        updateSigninStatus(false);
+async function validateToken(token) {
+    try {
+        const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
+        const result = await response.json();
+
+        if (result.error) {
+            console.log("Token is invalid:", result.error);
+            return false;
+        }
+
+        console.log("Token is valid");
+        return true;
+    } catch (error) {
+        console.error("Error validating token:", error);
+        return false;
     }
+}
+
+function saveTokenToLocalStorage(token) {
+    localStorage.setItem('guessbook_access_token', token);
+    localStorage.setItem('guessbook_token_timestamp', Date.now().toString());
+}
+
+function loadTokenFromLocalStorage() {
+    const token = localStorage.getItem('guessbook_access_token');
+    const timestamp = localStorage.getItem('guessbook_token_timestamp');
+
+    if (token && timestamp) {
+        // Check if the token is less than 1 hour old
+        if (Date.now() - parseInt(timestamp) < 3600000) {
+            return token;
+        }
+    }
+    return null;
+}
+
+function clearTokenFromLocalStorage() {
+    localStorage.removeItem('guessbook_access_token');
+    localStorage.removeItem('guessbook_token_timestamp');
 }
 
 async function saveFile(content, fileId = null) {
@@ -185,17 +237,33 @@ document.getElementById('close-file-browser').onclick = () => {
     document.getElementById('file-browser').style.display = 'none';
 };
 
-function handleAuthClick() {
+async function handleAuthClick() {
     console.log("Auth button clicked, current accessToken:", accessToken);
     if (accessToken === null) {
         console.log("Requesting access token");
-        tokenClient.requestAccessToken();
+        tokenClient.requestAccessToken({
+            callback: async (tokenResponse) => {
+                if (tokenResponse.error !== undefined) {
+                    console.error("Error getting token:", tokenResponse.error);
+                    await updateSigninStatus(false);
+                } else {
+                    console.log("Token received:", tokenResponse);
+                    accessToken = tokenResponse.access_token;
+                    saveTokenToLocalStorage(accessToken);
+                    await updateSigninStatus(true);
+                }
+            }
+        });
     } else {
         console.log("Revoking access token");
-        google.accounts.oauth2.revoke(accessToken, () => {
-            console.log("Token revoked");
-            accessToken = null;
-            updateSigninStatus(false);
+        await new Promise((resolve) => {
+            google.accounts.oauth2.revoke(accessToken, async () => {
+                console.log("Token revoked");
+                accessToken = null;
+                clearTokenFromLocalStorage();
+                await updateSigninStatus(false);
+                resolve();
+            });
         });
     }
 }
