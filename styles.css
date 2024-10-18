@@ -74,6 +74,12 @@ h1 {
     cursor: not-allowed;
 }
 
+.icon-list i {
+    margin-right: 10px;
+    width: 15px;
+    text-align: center;
+}
+
 #user-section {
     display: flex;
     align-items: center;
