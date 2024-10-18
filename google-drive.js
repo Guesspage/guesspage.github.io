@@ -274,6 +274,23 @@ async function handleAuthClick() {
     }
 }
 
+async function handleLoad(fileId) {
+    try {
+        const content = await loadFileFromId(fileId);
+        if (content) {
+            rawInput.value = content;
+            currentFileId = fileId;
+            updateView();
+            showNotification('File loaded successfully');
+        } else {
+            throw new Error('No content received from file');
+        }
+    } catch (error) {
+        console.error('Error loading file:', error);
+        showNotification('Error loading file from Google Drive', 'error');
+    }
+}
+
 async function handleSave() {
     const content = rawInput.value;
     saveToLocalStorage();
