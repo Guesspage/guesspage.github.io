@@ -99,7 +99,7 @@ export function updateCellValues(html, results) {
     return doc.body.innerHTML;
 }
 
-export function createDistributionChart(canvasId, data) {
+export function createDistributionChart(canvasId, data, color) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     const values = data.sort((a, b) => a - b);
     const buckets = 20;
@@ -117,7 +117,7 @@ export function createDistributionChart(canvasId, data) {
             labels: counts.map((_, i) => (values[0] + i * bucketSize).toFixed(2)),
             datasets: [{
                 data: counts,
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                backgroundColor: color,
             }]
         },
         options: {

@@ -8,22 +8,40 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
     <header>
-        <h1>Guesspage</h1>
-        <div id="menu-bar">
-            <button id="raw-mode-btn" aria-pressed="true">Raw</button>
-            <button id="view-mode-btn" aria-pressed="false">View</button>
-            <button id="save-btn" disabled aria-disabled="true">Save</button>
-            <button id="signin-btn">Sign In</button>
-            <div id="auth-status" aria-live="polite"></div>
-            <button id="theme-toggle" aria-label="Toggle dark mode">🌓</button>
+        <div class="header-content">
+            <h1>Guesspage</h1>
+            <div id="menu-bar">
+                <button id="raw-mode-btn" class="icon-btn" aria-pressed="true" title="Raw Mode">
+                    <i class="fas fa-code"></i>
+                </button>
+                <button id="view-mode-btn" class="icon-btn" aria-pressed="false" title="View Mode">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button id="save-btn" class="icon-btn" disabled aria-disabled="true" title="Save">
+                    <i class="fas fa-save"></i>
+                </button>
+                <button id="help-btn" class="icon-btn" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+                <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode" title="Toggle Theme">
+                    <i class="fas fa-adjust"></i>
+                </button>
+            </div>
+        </div>
+        <div id="user-section">
+            <button id="signin-btn" class="icon-btn" title="Sign In">
+                <i class="fas fa-user-circle"></i>
+            </button>
+            <span id="auth-status" aria-live="polite"></span>
         </div>
     </header>
     <main>
         <div id="raw-editor">
-            <textarea id="raw-input" aria-label="Raw input"></textarea>
+            <textarea id="raw-input" aria-label="Raw input" placeholder="Enter your Guesspage content here..."></textarea>
         </div>
         <div id="view-mode" class="hidden">
             <div id="left-column" aria-label="Charts"></div>
@@ -31,12 +49,51 @@
             <div id="right-column" aria-label="Cell details"></div>
         </div>
     </main>
-    <div id="file-browser" class="modal hidden" aria-hidden="true">
+
+    <div id="help-modal" class="modal" aria-hidden="true">
         <div class="modal-content">
-            <h2>Select a file</h2>
-            <input type="text" id="file-search" placeholder="Search files...">
-            <ul id="file-list"></ul>
-            <button id="close-file-browser">Close</button>
+            <div class="modal-header">
+                <h2>Guesspage Help</h2>
+                <button id="close-help-modal" class="close-btn" aria-label="Close help">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Guesspage is a tool for creating dynamic, parameterized documents with probabilistic reasoning.
+                It allows you to write formatted explanations that include uncertain values and relationships,
+                automatically updating charts and calculations as you modify inputs.</p>
+                <p>With Guesspage, you can explore complex scenarios, perform sensitivity analyses
+                (not yet implemented!), and visualize the impact of changing assumptions - all within a single,
+                interactive document.</p>
+                <p>To share documents, save them to your Google Drive. This requires authenticating the site.
+                Documents are saved to the folder "Guesspage Files". When saved, you can share the document with
+                others by copying the URL.</p>
+                <p>Your account information is not stored anywhere but your browser, and not sent anywhere but the
+                Google Drive API, when required to save.</p>
+                <h3>Basic Usage:</h3>
+                <ul>
+                    <li><i class="fas fa-code"></i> Use Raw Mode to edit content with formulas.</li>
+                    <li><i class="fas fa-eye"></i> Use View Mode to see the rendered document and calculations.</li>
+                    <li><i class="fas fa-save"></i> Save your document (Ctrl + S).</li>
+                    <li><i class="fas fa-question-circle"></i> Show this page.</li>
+                    <li><i class="fas fa-adjust"></i> Toggle dark mode.</li>
+                </ul>
+                <h3>Syntax:</h3>
+                <ul>
+                    <li>Cells can reference fields that have come before.
+                    <li><code>[cellname = value]</code>: Define a cell with a fixed value</li>
+                    <li><code>[cellname = normal(min, max)]</code>: Define a cell with a normal distribution</li>
+                    <li><code>[cellname = othercell * 2]</code>: Define a cell based on other cells</li>
+                    <li><code>*bold text*</code>: Create bold text</li>
+                    <li><code>_italic text_</code>: Create italic text</li>
+                    <li><code>`code`</code>: Inline code</li>
+                    <li><code># Heading 1</code>: Create a top-level heading</li>
+                    <li><code>## Heading 2</code>: Create a second-level heading</li>
+                    <li><code>[Link text](URL)</code>: Create a hyperlink</li>
+                </ul>
+                <h3>Keyboard Shortcuts:</h3>
+                <ul>
+                    <li>Ctrl + S: Save document</li>
+                </ul>
+            </div>
         </div>
     </div>
     <div id="notification" class="hidden" aria-live="assertive"></div>

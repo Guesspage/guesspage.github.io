@@ -34,3 +34,18 @@ export function memoize(fn) {
         return result;
     };
 }
+
+export function generatePastelColor(seed) {
+    const hue = stringToHash(seed) % 360;
+    return `hsl(${hue}, 70%, 80%)`;
+}
+
+function stringToHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+}

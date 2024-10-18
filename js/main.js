@@ -1,7 +1,7 @@
 import { initializeGoogleDrive, handleAuthClick, handleSave, handleLoad } from './google-drive.js';
 import { parseInput, generateResults } from './calculator.js';
 import { parseMarkdown, updateCellValues, createDistributionChart, createFloatingCellContent } from './ui.js';
-import { debounce, showNotification } from './utils.js';
+import { debounce, showNotification, generatePastelColor } from './utils.js';
 
 const rawInput = document.getElementById('raw-input');
 const viewMode = document.getElementById('view-mode');
@@ -11,6 +11,9 @@ const viewModeBtn = document.getElementById('view-mode-btn');
 const saveBtn = document.getElementById('save-btn');
 const signinBtn = document.getElementById('signin-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const closeHelpModal = document.getElementById('close-help-modal');
 
 let currentFileId = null;
 
@@ -33,7 +36,7 @@ function switchToRawMode() {
     viewMode.classList.add('hidden');
     rawModeBtn.setAttribute('aria-pressed', 'true');
     viewModeBtn.setAttribute('aria-pressed', 'false');
-    clearArrows(); // Clear arrows when switching to raw mode
+    clearArrows();
 }
 
 function switchToViewMode() {
@@ -60,7 +63,7 @@ function updateView() {
     leftColumn.innerHTML = '';
     rightColumn.innerHTML = '';
 
-    clearArrows(); // Clear any existing arrows
+    clearArrows();
     const arrowsSVG = createArrowsSVG();
     createArrowheadMarker(arrowsSVG);
 
@@ -78,7 +81,8 @@ function updateView() {
             leftColumn.appendChild(chartContainer);
             chartContainers[name] = chartContainer;
 
-            createDistributionChart(`chart-${name}`, results[name]);
+            const cellColor = generatePastelColor(name);
+            createDistributionChart(`chart-${name}`, results[name], cellColor);
         }
 
         if (!floatingCells[name]) {
@@ -88,6 +92,9 @@ function updateView() {
             floatingCell.innerHTML = createFloatingCellContent(name, cells[name], results);
             rightColumn.appendChild(floatingCell);
             floatingCells[name] = floatingCell;
+
+            const cellColor = generatePastelColor(name);
+            floatingCell.style.borderLeft = `4px solid ${cellColor}`;
         }
     }
 
@@ -162,6 +169,8 @@ function updateView() {
 
     cellElements.forEach(cell => {
         const name = cell.id.replace('cell-', '');
+        const cellColor = generatePastelColor(name);
+        cell.style.backgroundColor = cellColor;
 
         cell.addEventListener('click', () => {
             toggleCellClickActive(name);
@@ -180,7 +189,7 @@ function updateView() {
 function createArrowsSVG() {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const viewMode = document.getElementById('view-mode');
-    svg.id = 'arrows-svg'; // Add an id to the SVG
+    svg.id = 'arrows-svg';
     svg.style.position = "absolute";
     svg.style.top = "0";
     svg.style.left = "0";
@@ -220,7 +229,7 @@ function drawArrow(svg, startEl, endEl, isLeftSide) {
                   C ${midX},${start.y} ${midX},${end.y} ${end.x},${end.y}`;
     arrow.setAttribute("d", path);
     arrow.setAttribute("fill", "none");
-    arrow.setAttribute("stroke", "rgba(200, 200, 200, 0.3)"); // gray transparent background arrow
+    arrow.setAttribute("stroke", "rgba(200, 200, 200, 0.3)");
     arrow.setAttribute("stroke-width", "10");
     arrow.setAttribute("marker-end", "url(#arrowhead)");
     svg.appendChild(arrow);
@@ -244,7 +253,7 @@ function createArrowheadMarker(svg) {
     marker.setAttribute("orient", "auto");
     const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
     polygon.setAttribute("points", "0 0, 4 2, 0 4");
-    polygon.setAttribute("fill", "rgba(200, 200, 200, 0.3)"); // gray transparent background arrow
+    polygon.setAttribute("fill", "rgba(200, 200, 200, 0.3)");
     marker.appendChild(polygon);
     defs.appendChild(marker);
     svg.appendChild(defs);
@@ -255,16 +264,24 @@ rawInput.addEventListener('input', debounce(() => {
 }, 1000));
 
 window.addEventListener('load', async () => {
-    try {
-        await initializeGoogleDrive();
-    } catch (error) {
-        console.error("Error during initialization:", error);
-        showNotification('Error: ' + error.message, 'error');
+    const isLocalFile = window.location.protocol === 'file:';
+
+    if (!isLocalFile) {
+        try {
+            await initializeGoogleDrive();
+        } catch (error) {
+            console.error("Error during initialization:", error);
+            showNotification('Error: ' + error.message, 'error');
+        }
+    } else {
+        console.log("Running locally, Google Drive integration disabled.");
+        document.getElementById('signin-btn').style.display = 'none';
+        document.getElementById('save-btn').style.display = 'none';
     }
 
     const urlParams = new URLSearchParams(window.location.search);
     const fileId = urlParams.get('fileId');
-    if (fileId) {
+    if (fileId && !isLocalFile) {
         handleLoad(fileId);
     } else {
         const savedContent = loadFromLocalStorage();
@@ -293,7 +310,35 @@ themeToggle.addEventListener('click', () => {
     localStorage.setItem('darkMode', isDarkMode);
 });
 
-// Check for saved theme preference or respect OS preference
+function showModal() {
+    helpModal.style.display = 'block';
+    helpModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeModal() {
+    helpModal.style.display = 'none';
+    helpModal.setAttribute('aria-hidden', 'true');
+}
+
+helpBtn.addEventListener('click', showModal);
+closeHelpModal.addEventListener('click', closeModal);
+
+window.addEventListener('click', (event) => {
+    if (event.target === helpModal) {
+        closeModal();
+    }
+});
+
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+    if (event.ctrlKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        handleSave();
+    }
+});
+
 const savedTheme = localStorage.getItem('darkMode');
 const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 if (savedTheme === 'true' || (savedTheme === null && prefersDarkScheme.matches)) {
