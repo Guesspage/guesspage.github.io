@@ -637,6 +637,11 @@ rawInput.addEventListener('input', debounce(() => {
 }, 1000));
 
 window.addEventListener('load', () => {
+    // Initialize Google Drive integration. Must come first!
+    initializeGoogleDrive().catch(error => {
+        console.error("Error initializing Google Drive integration:", error);
+    });
+
     const urlParams = new URLSearchParams(window.location.search);
     const fileId = urlParams.get('fileId');
     if (fileId) {
@@ -648,11 +653,6 @@ window.addEventListener('load', () => {
             updateView();
         }
     }
-
-    // Initialize Google Drive integration
-    initializeGoogleDrive().catch(error => {
-        console.error("Error initializing Google Drive integration:", error);
-    });
 });
 
 window.addEventListener('beforeunload', (event) => {
