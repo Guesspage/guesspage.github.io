@@ -8,10 +8,12 @@ let tokenClient;
 let accessToken = null;
 
 function initializeGoogleDrive() {
+    console.log("Initializing Google Drive integration");
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: (tokenResponse) => {
+            console.log("Token received:", tokenResponse);
             accessToken = tokenResponse.access_token;
             updateSigninStatus(true);
         },
@@ -21,22 +23,31 @@ function initializeGoogleDrive() {
 }
 
 async function initializeGapiClient() {
-    await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: DISCOVERY_DOCS,
-    });
+    console.log("Initializing GAPI client");
+    try {
+        await gapi.client.init({
+            apiKey: API_KEY,
+            discoveryDocs: DISCOVERY_DOCS,
+        });
+        console.log("GAPI client initialized successfully");
+    } catch (error) {
+        console.error("Error initializing GAPI client:", error);
+    }
 }
 
 function updateSigninStatus(isSignedIn) {
+    console.log("Updating signin status:", isSignedIn);
     const authStatus = document.getElementById('auth-status');
     const saveBtn = document.getElementById('save-btn');
     const loadBtn = document.getElementById('load-btn');
 
     if (isSignedIn) {
+        console.log("User is signed in");
         authStatus.textContent = 'Signed in';
         saveBtn.disabled = false;
         loadBtn.disabled = false;
     } else {
+        console.log("User is signed out");
         authStatus.textContent = 'Signed out';
         saveBtn.disabled = true;
         loadBtn.disabled = true;
@@ -173,6 +184,23 @@ function showFileBrowser() {
 document.getElementById('close-file-browser').onclick = () => {
     document.getElementById('file-browser').style.display = 'none';
 };
+
+function handleAuthClick() {
+    console.log("Auth button clicked, current accessToken:", accessToken);
+    if (accessToken === null) {
+        console.log("Requesting access token");
+        tokenClient.requestAccessToken();
+    } else {
+        console.log("Revoking access token");
+        google.accounts.oauth2.revoke(accessToken, () => {
+            console.log("Token revoked");
+            accessToken = null;
+            updateSigninStatus(false);
+        });
+    }
+}
+
+document.getElementById('signin-btn').addEventListener('click', handleAuthClick);
 
 function showNotification(message, type = 'success') {
     const notification = document.getElementById('notification');
