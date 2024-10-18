@@ -12,6 +12,8 @@ header {
 
 #menu-bar {
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
 }
 
 #menu-bar button {
@@ -22,7 +24,7 @@ header {
 main {
     display: flex;
     position: relative;
-    min-height: calc(100vh - 100px); /* Adjust based on your header height */
+    min-height: calc(100vh - 100px);
 }
 
 #raw-editor, #view-mode {
@@ -56,8 +58,8 @@ main {
 }
 
 #center-column {
-    margin: 0 22%; /* Slightly more than the width of the side columns */
-    width: 56%; /* 100% - 2 * 22% */
+    margin: 0 22%;
+    width: 56%;
     padding: 20px;
     box-sizing: border-box;
 }
@@ -92,7 +94,7 @@ main {
     padding: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     z-index: 10;
-    width: calc(100% - 20px); /* Adjust for padding */
+    width: calc(100% - 20px);
     left: 0;
 }
 
@@ -103,11 +105,6 @@ main {
 
 .floating-cell p {
     margin: 5px 0;
-}
-/* Add these styles to your existing styles.css file */
-
-#menu-bar button {
-    margin-right: 5px;
 }
 
 #version-history {
@@ -124,4 +121,19 @@ main {
 #version-list {
     max-height: 300px;
     overflow-y: auto;
+}
+
+#user-info {
+    display: flex;
+    align-items: center;
+    margin-left: 10px;
+}
+
+#user-info.hidden {
+    display: none;
+}
+
+#user-avatar {
+    border-radius: 50%;
+    margin-right: 5px;
 }

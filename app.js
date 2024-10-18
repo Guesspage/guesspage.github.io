@@ -1,3 +1,216 @@
+const CLIENT_ID = 'Ov23liSvbiboUUd1hGLa';
+const GITHUB_API_URL = 'https://api.github.com';
+
+let accessToken = null;
+
+// Authentication functions
+async function startAuth() {
+    const response = await fetch('https://github.com/login/device/code', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            client_id: CLIENT_ID,
+            scope: 'gist user',
+        }),
+    });
+    const data = await response.json();
+
+    alert(`Please go to ${data.verification_uri} and enter the code: ${data.user_code}`);
+
+    pollForAccessToken(data.device_code, data.interval);
+}
+
+async function pollForAccessToken(deviceCode, interval) {
+    const response = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            client_id: CLIENT_ID,
+            device_code: deviceCode,
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        }),
+    });
+    const data = await response.json();
+
+    if (data.error === 'authorization_pending') {
+        setTimeout(() => pollForAccessToken(deviceCode, interval), interval * 1000);
+    } else if (data.access_token) {
+        accessToken = data.access_token;
+        localStorage.setItem('accessToken', accessToken);
+        await updateLoginButton();
+    } else {
+        alert('Authentication failed. Please try again.');
+    }
+}
+
+function logout() {
+    accessToken = null;
+    localStorage.removeItem('accessToken');
+    document.getElementById('user-info').classList.add('hidden');
+    updateLoginButton();
+}
+
+async function updateLoginButton() {
+    const loginBtn = document.getElementById('login-btn');
+    const userInfo = document.getElementById('user-info');
+    const userAvatar = document.getElementById('user-avatar');
+    const userName = document.getElementById('user-name');
+
+    if (accessToken) {
+        loginBtn.textContent = 'Logout';
+        loginBtn.onclick = logout;
+
+        try {
+            const user = await fetchUserInfo();
+            userAvatar.src = user.avatar_url;
+            userName.textContent = user.name || user.login;
+            userInfo.classList.remove('hidden');
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+        }
+    } else {
+        loginBtn.textContent = 'Login';
+        loginBtn.onclick = startAuth;
+        userInfo.classList.add('hidden');
+    }
+}
+
+async function fetchUserInfo() {
+    const response = await fetch(`${GITHUB_API_URL}/user`, {
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+        },
+    });
+    return await response.json();
+}
+
+// Gist operations
+async function createGist(content) {
+    const response = await fetch(`${GITHUB_API_URL}/gists`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            files: {
+                'guessbook.md': {
+                    content: content,
+                },
+            },
+            public: false,
+            description: 'Guessbook document',
+        }),
+    });
+    const data = await response.json();
+    return data.id;
+}
+
+async function updateGist(gistId, content) {
+    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            files: {
+                'guessbook.md': {
+                    content: content,
+                },
+            },
+        }),
+    });
+    const data = await response.json();
+    return data.id;
+}
+
+async function loadGist(gistId) {
+    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+        },
+    });
+    const data = await response.json();
+    return data.files['guessbook.md'].content;
+}
+
+// URL handling
+function getGistIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('gist');
+}
+
+function updateUrlWithGistId(gistId) {
+    const url = new URL(window.location);
+    url.searchParams.set('gist', gistId);
+    window.history.pushState({}, '', url);
+}
+
+// Local storage management
+function saveToLocalStorage(content) {
+    localStorage.setItem('guessbook_content', content);
+}
+
+function loadFromLocalStorage() {
+    return localStorage.getItem('guessbook_content');
+}
+
+// UI updates
+document.getElementById('new-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = await createGist(content);
+    updateUrlWithGistId(gistId);
+    alert('New Gist created successfully!');
+});
+
+document.getElementById('save-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = getGistIdFromUrl();
+    if (gistId) {
+        await updateGist(gistId, content);
+        alert('Gist updated successfully!');
+    } else {
+        const newGistId = await createGist(content);
+        updateUrlWithGistId(newGistId);
+        alert('New Gist created successfully!');
+    }
+});
+
+document.getElementById('load-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const gistId = prompt('Enter Gist ID:');
+    if (gistId) {
+        const content = await loadGist(gistId);
+        rawInput.value = content;
+        updateUrlWithGistId(gistId);
+        updateView();
+    }
+});
+
 // Tokenizer
 function tokenize(formula) {
     const regex = /([\+\-\*\/\(\)\,]|\s+|[A-Za-z_][A-Za-z0-9_]*|[0-9]*\.?[0-9]+)/g;
@@ -257,14 +470,14 @@ function parseInline(text) {
     return result;
 }
 
-function normalRandom(min, max) {
+function normalRandom(percentile5, percentile95) {
+    const mean = (percentile5 + percentile95) / 2;
+    const stdDev = (percentile95 - percentile5) / (2 * 1.645); // 1.645 is the z-score for the 95th percentile
     let u = 0, v = 0;
     while (u === 0) u = Math.random();
     while (v === 0) v = Math.random();
     let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-    num = num / 10.0 + 0.5;
-    if (num > 1 || num < 0) return normalRandom(min, max);
-    return min + (max - min) * num;
+    return num * stdDev + mean;
 }
 
 function parseInput(input) {
@@ -392,9 +605,9 @@ function createArrowsSVG() {
     svg.style.width = "100%";
     svg.style.height = "100%";
     svg.style.pointerEvents = "none";
-    svg.style.zIndex = "0"; // Ensure it's below other elements
+    svg.style.zIndex = "0";
 
-    viewMode.appendChild(svg); // Append to view-mode instead of body
+    viewMode.appendChild(svg);
 
     return svg;
 }
@@ -414,11 +627,10 @@ function drawArrow(svg, startEl, endEl, isLeftSide) {
         y: endRect.top - viewAreaRect.top + endRect.height / 2
     };
 
-    // Adjust end point to prevent overlap with arrowhead
     if (isLeftSide) {
-        end.x -= 5; // Move 5px to the left for left-side arrows
+        end.x -= 5;
     } else {
-        end.x += 5; // Move 5px to the right for right-side arrows
+        end.x += 5;
     }
 
     const midX = (start.x + end.x) / 2;
@@ -511,7 +723,7 @@ function updateView() {
 
     function toggleCellClickActive(name) {
         clickActiveCells[name] = !clickActiveCells[name];
-        hoverActiveCells[name] = false;  // Unset hover state when toggling click state
+        hoverActiveCells[name] = false;
         updateCellVisibility(name);
         positionAllElements();
     }
@@ -533,10 +745,9 @@ function updateView() {
     function positionAllElements() {
         let nextChartY = 0;
         let nextBoxY = 0;
-        arrowsSVG.innerHTML = ''; // Clear existing arrows
-        createArrowheadMarker(arrowsSVG); // Re-add the arrowhead marker
+        arrowsSVG.innerHTML = '';
+        createArrowheadMarker(arrowsSVG);
 
-        // we assume all columns start at the same height for simplicity
         const viewAreaRect = document.getElementById('view-mode').getBoundingClientRect();
 
         cellElements.forEach(cell => {
@@ -561,14 +772,12 @@ function updateView() {
                     floatingCell.style.top = `${boxTop}px`;
                     nextBoxY = boxTop + boxHeight + gap;
 
-                    // Draw arrows
                     drawArrow(arrowsSVG, cell, chartContainer, true);
                     drawArrow(arrowsSVG, cell, floatingCell, false);
                 }
             }
         });
     }
-
 
     cellElements.forEach(cell => {
         const name = cell.id.replace('cell-', '');
@@ -617,200 +826,6 @@ rawInput.addEventListener('input', () => {
 rawModeBtn.addEventListener('click', switchToRawMode);
 viewModeBtn.addEventListener('click', switchToViewMode);
 
-switchToRawMode();
-// Add these functions to your existing app.js file
-
-const CLIENT_ID = 'your_github_app_client_id';
-const GITHUB_API_URL = 'https://api.github.com';
-
-let accessToken = null;
-
-// Authentication functions
-async function startAuth() {
-    const response = await fetch('https://github.com/login/device/code', {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            client_id: CLIENT_ID,
-            scope: 'gist',
-        }),
-    });
-    const data = await response.json();
-
-    // Display the user code and verification URL to the user
-    alert(`Please go to ${data.verification_uri} and enter the code: ${data.user_code}`);
-
-    // Poll for the access token
-    pollForAccessToken(data.device_code, data.interval);
-}
-
-async function pollForAccessToken(deviceCode, interval) {
-    const response = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            client_id: CLIENT_ID,
-            device_code: deviceCode,
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-    });
-    const data = await response.json();
-
-    if (data.error === 'authorization_pending') {
-        // Wait for the specified interval and try again
-        setTimeout(() => pollForAccessToken(deviceCode, interval), interval * 1000);
-    } else if (data.access_token) {
-        accessToken = data.access_token;
-        localStorage.setItem('accessToken', accessToken);
-        updateLoginButton();
-    } else {
-        alert('Authentication failed. Please try again.');
-    }
-}
-
-function logout() {
-    accessToken = null;
-    localStorage.removeItem('accessToken');
-    updateLoginButton();
-}
-
-function updateLoginButton() {
-    const loginBtn = document.getElementById('login-btn');
-    if (accessToken) {
-        loginBtn.textContent = 'Logout';
-        loginBtn.onclick = logout;
-    } else {
-        loginBtn.textContent = 'Login';
-        loginBtn.onclick = startAuth;
-    }
-}
-
-// Gist operations
-async function createGist(content) {
-    const response = await fetch(`${GITHUB_API_URL}/gists`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `token ${accessToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            files: {
-                'guessbook.md': {
-                    content: content,
-                },
-            },
-            public: false,
-            description: 'Guessbook document',
-        }),
-    });
-    const data = await response.json();
-    return data.id;
-}
-
-async function updateGist(gistId, content) {
-    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `token ${accessToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            files: {
-                'guessbook.md': {
-                    content: content,
-                },
-            },
-        }),
-    });
-    const data = await response.json();
-    return data.id;
-}
-
-async function loadGist(gistId) {
-    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
-        headers: {
-            'Authorization': `token ${accessToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-        },
-    });
-    const data = await response.json();
-    return data.files['guessbook.md'].content;
-}
-
-// URL handling
-function getGistIdFromUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('gist');
-}
-
-function updateUrlWithGistId(gistId) {
-    const url = new URL(window.location);
-    url.searchParams.set('gist', gistId);
-    window.history.pushState({}, '', url);
-}
-
-// Local storage management
-function saveToLocalStorage(content) {
-    localStorage.setItem('guessbook_content', content);
-}
-
-function loadFromLocalStorage() {
-    return localStorage.getItem('guessbook_content');
-}
-
-// UI updates
-document.getElementById('new-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const content = rawInput.value;
-    saveToLocalStorage(content);
-    const gistId = await createGist(content);
-    updateUrlWithGistId(gistId);
-    alert('New Gist created successfully!');
-});
-
-document.getElementById('save-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const content = rawInput.value;
-    saveToLocalStorage(content);
-    const gistId = getGistIdFromUrl();
-    if (gistId) {
-        await updateGist(gistId, content);
-        alert('Gist updated successfully!');
-    } else {
-        const newGistId = await createGist(content);
-        updateUrlWithGistId(newGistId);
-        alert('New Gist created successfully!');
-    }
-});
-
-document.getElementById('load-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const gistId = prompt('Enter Gist ID:');
-    if (gistId) {
-        const content = await loadGist(gistId);
-        rawInput.value = content;
-        updateUrlWithGistId(gistId);
-        updateView();
-    }
-});
-
 // Initialize the app
 function init() {
     accessToken = localStorage.getItem('accessToken');
@@ -834,4 +849,5 @@ function init() {
     }
 }
 
+switchToRawMode();
 init();

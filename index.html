@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guessbook</title>
+    <title>Guesspage</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
-        <h1>Guessbook</h1>
+        <h1>Guesspage</h1>
         <div id="menu-bar">
             <button id="raw-mode-btn">Raw</button>
             <button id="view-mode-btn">View</button>
@@ -17,6 +17,10 @@
             <button id="save-gist-btn">Save Gist</button>
             <button id="load-gist-btn">Load Gist</button>
             <button id="login-btn">Login</button>
+            <div id="user-info" class="hidden">
+                <img id="user-avatar" src="" alt="User avatar" width="32" height="32">
+                <span id="user-name"></span>
+            </div>
         </div>
     </header>
     <main>
