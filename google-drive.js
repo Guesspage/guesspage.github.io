@@ -179,8 +179,7 @@ async function makeFilePublic(fileId) {
             resource: {
                 role: 'reader',
                 type: 'anyone'
-            },
-            auth: accessToken
+            }
         });
         console.log('File made public');
     } catch (error) {
