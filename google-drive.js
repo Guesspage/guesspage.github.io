@@ -224,41 +224,34 @@ async function getGuessbookFolder() {
     }
 
     try {
-        // Attempt to create the folder
+        // First, try to find an existing folder
+        let response = await gapi.client.drive.files.list({
+            q: `mimeType='application/vnd.google-apps.folder' and name='${GUESSBOOK_FOLDER_NAME}' and trashed=false`,
+            fields: 'files(id, name)',
+            spaces: 'drive'
+        });
+
+        let folder = response.result.files[0];
+
+        if (folder) {
+            console.log('Found existing Guessbook folder:', folder.id);
+            return folder.id;
+        }
+
+        // If no folder found, create a new one
         let folderMetadata = {
             'name': GUESSBOOK_FOLDER_NAME,
             'mimeType': 'application/vnd.google-apps.folder'
         };
         let folderResponse = await gapi.client.drive.files.create({
             resource: folderMetadata,
-            fields: 'id',
-            auth: accessToken
+            fields: 'id'
         });
-        console.log('Guessbook folder created:', folderResponse.result.id);
+        console.log('Created new Guessbook folder:', folderResponse.result.id);
         return folderResponse.result.id;
     } catch (error) {
-        console.error('Error creating Guessbook folder:', error);
-        // If we get a 409 error, it means the folder already exists
-        if (error.status === 409) {
-            console.log('Folder already exists, attempting to retrieve it');
-            try {
-                let response = await gapi.client.drive.files.list({
-                    q: `mimeType='application/vnd.google-apps.folder' and name='${GUESSBOOK_FOLDER_NAME}' and trashed=false`,
-                    fields: 'files(id, name)',
-                    spaces: 'drive',
-                    auth: accessToken
-                });
-                let folder = response.result.files[0];
-                if (folder) {
-                    console.log('Retrieved existing Guessbook folder:', folder.id);
-                    return folder.id;
-                }
-            } catch (listError) {
-                console.error('Error retrieving existing folder:', listError);
-            }
-        }
-        // If we still don't have a folder ID, throw an error
-        throw new Error('Unable to create or find Guessbook folder');
+        console.error('Error getting or creating Guessbook folder:', error);
+        throw new Error('Unable to access or create Guessbook folder');
     }
 }
 
