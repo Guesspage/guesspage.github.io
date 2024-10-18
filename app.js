@@ -614,6 +614,8 @@ async function handleSave() {
         if (fileId) {
             currentFileId = fileId;
             showNotification('File saved successfully to Google Drive');
+        } else {
+            throw new Error('Failed to save file to Google Drive');
         }
     } catch (error) {
         console.error('Error saving to Google Drive:', error);

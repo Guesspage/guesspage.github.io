@@ -121,16 +121,20 @@ function clearTokenFromLocalStorage() {
 async function saveFile(content) {
     if (!accessToken) {
         showNotification('Please sign in to save', 'error');
-        return;
+        return null;
     }
 
     try {
         const folderId = await getGuessbookFolder();
 
+        if (!folderId) {
+            throw new Error('Unable to access Guessbook folder');
+        }
+
         const metadata = {
             name: 'Guessbook Document',
             mimeType: 'application/json',
-            parents: currentFileId ? [] : [folderId]
+            parents: [folderId]
         };
 
         const form = new FormData();
@@ -151,16 +155,15 @@ async function saveFile(content) {
         const result = await response.json();
 
         if (response.ok) {
-            const fileId = result.id;
-            updateUrlWithFileId(fileId);
-            await makeFilePublic(fileId);
+            await makeFilePublic(result.id);
             showNotification('File saved successfully');
-            return fileId;
+            return result.id;
         } else {
             throw new Error(result.error.message);
         }
     } catch (error) {
         showNotification('Error saving file: ' + error.message, 'error');
+        return null;
     }
 }
 
@@ -210,33 +213,39 @@ function updateUrlWithFileId(fileId) {
 
 async function getGuessbookFolder() {
     try {
-        // Check if the folder already exists
-        let response = await gapi.client.drive.files.list({
-            q: `mimeType='application/vnd.google-apps.folder' and name='${GUESSBOOK_FOLDER_NAME}' and trashed=false`,
-            fields: 'files(id, name)'
+        // Attempt to create the folder
+        let folderMetadata = {
+            'name': GUESSBOOK_FOLDER_NAME,
+            'mimeType': 'application/vnd.google-apps.folder'
+        };
+        let folderResponse = await gapi.client.drive.files.create({
+            resource: folderMetadata,
+            fields: 'id'
         });
-
-        let folder = response.result.files[0];
-
-        if (folder) {
-            console.log('Guessbook folder found:', folder.id);
-            return folder.id;
-        } else {
-            // Create the folder if it doesn't exist
-            let folderMetadata = {
-                'name': GUESSBOOK_FOLDER_NAME,
-                'mimeType': 'application/vnd.google-apps.folder'
-            };
-            let folderResponse = await gapi.client.drive.files.create({
-                resource: folderMetadata,
-                fields: 'id'
-            });
-            console.log('Guessbook folder created:', folderResponse.result.id);
-            return folderResponse.result.id;
-        }
+        console.log('Guessbook folder created:', folderResponse.result.id);
+        return folderResponse.result.id;
     } catch (error) {
-        console.error('Error getting or creating Guessbook folder:', error);
-        throw error;
+        console.error('Error creating Guessbook folder:', error);
+        // If we get a 409 error, it means the folder already exists
+        if (error.status === 409) {
+            console.log('Folder already exists, attempting to retrieve it');
+            try {
+                let response = await gapi.client.drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.folder' and name='${GUESSBOOK_FOLDER_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+                let folder = response.result.files[0];
+                if (folder) {
+                    console.log('Retrieved existing Guessbook folder:', folder.id);
+                    return folder.id;
+                }
+            } catch (listError) {
+                console.error('Error retrieving existing folder:', listError);
+            }
+        }
+        // If we still don't have a folder ID, throw an error
+        throw new Error('Unable to create or find Guessbook folder');
     }
 }
 
