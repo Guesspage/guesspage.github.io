@@ -34,6 +34,19 @@ async function initializeGoogleDrive() {
     }
 }
 
+async function initializeGapiClient() {
+    console.log("Initializing GAPI client");
+    try {
+        await gapi.client.init({
+            apiKey: API_KEY,
+            discoveryDocs: DISCOVERY_DOCS,
+        });
+        console.log("GAPI client initialized successfully");
+    } catch (error) {
+        console.error("Error initializing GAPI client:", error);
+    }
+}
+
 async function updateSigninStatus(isSignedIn) {
     console.log("Updating signin status:", isSignedIn);
     const authStatus = document.getElementById('auth-status');
