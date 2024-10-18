@@ -636,11 +636,15 @@ rawInput.addEventListener('input', debounce(() => {
     saveToLocalStorage();
 }, 1000));
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     // Initialize Google Drive integration. Must come first!
-    initializeGoogleDrive().catch(error => {
-        console.error("Error initializing Google Drive integration:", error);
-    });
+    try {
+        await initializeGoogleDrive();
+    } catch (error) {
+        console.error("Error during initialization or file loading:", error);
+        showNotification('Error: ' + error.message, 'error');
+        throw error;
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const fileId = urlParams.get('fileId');
