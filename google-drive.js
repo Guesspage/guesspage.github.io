@@ -281,11 +281,26 @@ async function handleAuthClick() {
     }
 }
 
+async function handleSave() {
+    const content = rawInput.value;
+    saveToLocalStorage();
+
+    try {
+        const fileId = await saveFile(content);
+        if (fileId) {
+            currentFileId = fileId;
+            showNotification('File saved successfully to Google Drive');
+        } else {
+            throw new Error('Failed to save file to Google Drive');
+        }
+    } catch (error) {
+        console.error('Error saving to Google Drive:', error);
+        showNotification('Error saving to Google Drive. Changes saved locally.', 'error');
+    }
+}
+
 document.getElementById('signin-btn').addEventListener('click', handleAuthClick);
-document.getElementById('save-btn').addEventListener('click', () => {
-    const content = document.getElementById('raw-input').value;
-    saveFile(content);
-});
+document.getElementById('save-btn').addEventListener('click', handleSave);
 
 function showNotification(message, type = 'success') {
     const notification = document.getElementById('notification');

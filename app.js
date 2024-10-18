@@ -605,36 +605,6 @@ function updateURLWithFileId(fileId) {
     window.history.pushState({}, '', url);
 }
 
-async function handleSave() {
-    const content = rawInput.value;
-    saveToLocalStorage();
-
-    try {
-        const fileId = await saveFile(content);
-        if (fileId) {
-            currentFileId = fileId;
-            showNotification('File saved successfully to Google Drive');
-        } else {
-            throw new Error('Failed to save file to Google Drive');
-        }
-    } catch (error) {
-        console.error('Error saving to Google Drive:', error);
-        showNotification('Error saving to Google Drive. Changes saved locally.', 'error');
-    }
-}
-
-async function handleLoad(fileId) {
-    try {
-        const content = await loadFileFromId(fileId);
-        rawInput.value = content;
-        currentFileId = fileId;
-        updateView();
-    } catch (error) {
-        console.error('Error loading file:', error);
-        showNotification('Error loading file from Google Drive', 'error');
-    }
-}
-
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -661,8 +631,6 @@ function switchToViewMode() {
     viewModeBtn.disabled = true;
     updateView();
 }
-
-document.getElementById('save-btn').addEventListener('click', handleSave);
 
 rawInput.addEventListener('input', debounce(() => {
     saveToLocalStorage();
