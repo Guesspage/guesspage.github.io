@@ -191,20 +191,17 @@ async function makeFilePublic(fileId) {
 
 async function loadFileFromId(fileId) {
     try {
-        const response = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-            {
-                method: 'GET'
-            }
-        );
+        const response = await gapi.client.drive.files.get({
+            fileId: fileId,
+            alt: 'media'
+        });
 
-        if (response.ok) {
-            const content = await response.text();
-            showNotification('File loaded successfully');
+        if (response.status === 200) {
+            const content = response.body;
+            console.log('File loaded successfully');
             return content;
         } else {
-            const error = await response.json();
-            throw new Error(error.error.message);
+            throw new Error('Error loading file: ' + response.status);
         }
     } catch (error) {
         showNotification('Error loading file: ' + error.message, 'error');
@@ -287,7 +284,7 @@ async function handleLoad(fileId) {
         }
     } catch (error) {
         console.error('Error loading file:', error);
-        showNotification('Error loading file from Google Drive', 'error');
+        showNotification('Error loading file: ' + error.message, 'error');
     }
 }
 
