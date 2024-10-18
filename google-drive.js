@@ -157,6 +157,7 @@ async function saveFile(content) {
 
         if (response.ok) {
             await makeFilePublic(result.id);
+            updateUrlWithFileId(result.id);  // Update URL with file ID
             showNotification('File saved and made public successfully');
             return result.id;
         } else {
