@@ -6,6 +6,8 @@
     <title>Guesspage</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body>
     <header>
@@ -13,14 +15,9 @@
         <div id="menu-bar">
             <button id="raw-mode-btn">Raw</button>
             <button id="view-mode-btn">View</button>
-            <button id="new-gist-btn">New Gist</button>
-            <button id="save-gist-btn">Save Gist</button>
-            <button id="load-gist-btn">Load Gist</button>
-            <button id="login-btn">Login</button>
-            <div id="user-info" class="hidden">
-                <img id="user-avatar" src="" alt="User avatar" width="32" height="32">
-                <span id="user-name"></span>
-            </div>
+            <button id="save-btn" disabled>Save</button>
+            <button id="load-btn" disabled>Load</button>
+            <div id="auth-status"></div>
         </div>
     </header>
     <main>
@@ -33,10 +30,16 @@
             <div id="right-column"></div>
         </div>
     </main>
-    <div id="version-history" class="hidden">
-        <h2>Version History</h2>
-        <ul id="version-list"></ul>
+    <div id="file-browser" class="modal hidden">
+        <div class="modal-content">
+            <h2>Select a file</h2>
+            <input type="text" id="file-search" placeholder="Search files...">
+            <ul id="file-list"></ul>
+            <button id="close-file-browser">Close</button>
+        </div>
     </div>
+    <div id="notification" class="hidden"></div>
     <script src="app.js"></script>
+    <script src="google-drive.js"></script>
 </body>
 </html>
