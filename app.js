@@ -1,61 +1,97 @@
 const CLIENT_ID = 'Ov23liSvbiboUUd1hGLa';
+const REDIRECT_URI = 'https://guesspage.github.io';
+const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
+const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_API_URL = 'https://api.github.com';
 
 let accessToken = null;
 
-// Authentication functions
-async function startAuth() {
-    const response = await fetch('https://github.com/login/device/code', {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            client_id: CLIENT_ID,
-            scope: 'gist user',
-        }),
-    });
-    const data = await response.json();
-
-    alert(`Please go to ${data.verification_uri} and enter the code: ${data.user_code}`);
-
-    pollForAccessToken(data.device_code, data.interval);
+// Generate a random string for the code verifier
+function generateCodeVerifier() {
+    const array = new Uint32Array(56);
+    crypto.getRandomValues(array);
+    return Array.from(array, dec => ('0' + dec.toString(16)).substr(-2)).join('');
 }
 
-async function pollForAccessToken(deviceCode, interval) {
-    const response = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            client_id: CLIENT_ID,
-            device_code: deviceCode,
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-    });
-    const data = await response.json();
+// Create a code challenge from the code verifier
+async function generateCodeChallenge(codeVerifier) {
+    const digest = await crypto.subtle.digest('SHA-256',
+        new TextEncoder().encode(codeVerifier));
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
 
-    if (data.error === 'authorization_pending') {
-        setTimeout(() => pollForAccessToken(deviceCode, interval), interval * 1000);
-    } else if (data.access_token) {
-        accessToken = data.access_token;
-        localStorage.setItem('accessToken', accessToken);
-        await updateLoginButton();
-    } else {
-        alert('Authentication failed. Please try again.');
+// Start the authentication process
+async function startAuth() {
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    localStorage.setItem('code_verifier', codeVerifier);
+
+    const params = new URLSearchParams({
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        scope: 'gist user',
+        state: generateCodeVerifier(), // Use a random state
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+    });
+
+    window.location = `${GITHUB_AUTH_URL}?${params.toString()}`;
+}
+
+// Handle the callback from GitHub
+async function handleCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const codeVerifier = localStorage.getItem('code_verifier');
+
+    if (code && state) {
+        try {
+            const tokenResponse = await fetch(GITHUB_TOKEN_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: CLIENT_ID,
+                    code: code,
+                    redirect_uri: REDIRECT_URI,
+                    code_verifier: codeVerifier
+                })
+            });
+
+            const data = await tokenResponse.json();
+            if (data.access_token) {
+                accessToken = data.access_token;
+                localStorage.setItem('accessToken', accessToken);
+                await updateLoginButton();
+                // Clear the URL parameters
+                window.history.replaceState({}, document.title, REDIRECT_URI);
+            } else {
+                throw new Error('Failed to get access token');
+            }
+        } catch (error) {
+            console.error('Error during token exchange:', error);
+            alert('Authentication failed. Please try again.');
+        }
     }
 }
 
-function logout() {
-    accessToken = null;
-    localStorage.removeItem('accessToken');
-    document.getElementById('user-info').classList.add('hidden');
-    updateLoginButton();
+// Fetch user information
+async function fetchUserInfo() {
+    const response = await fetch(`${GITHUB_API_URL}/user`, {
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+        },
+    });
+    return await response.json();
 }
 
+// Update login button and user info
 async function updateLoginButton() {
     const loginBtn = document.getElementById('login-btn');
     const userInfo = document.getElementById('user-info');
@@ -81,14 +117,13 @@ async function updateLoginButton() {
     }
 }
 
-async function fetchUserInfo() {
-    const response = await fetch(`${GITHUB_API_URL}/user`, {
-        headers: {
-            'Authorization': `token ${accessToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-        },
-    });
-    return await response.json();
+// Logout function
+function logout() {
+    accessToken = null;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('code_verifier');
+    document.getElementById('user-info').classList.add('hidden');
+    updateLoginButton();
 }
 
 // Gist operations
@@ -165,51 +200,6 @@ function saveToLocalStorage(content) {
 function loadFromLocalStorage() {
     return localStorage.getItem('guessbook_content');
 }
-
-// UI updates
-document.getElementById('new-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const content = rawInput.value;
-    saveToLocalStorage(content);
-    const gistId = await createGist(content);
-    updateUrlWithGistId(gistId);
-    alert('New Gist created successfully!');
-});
-
-document.getElementById('save-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const content = rawInput.value;
-    saveToLocalStorage(content);
-    const gistId = getGistIdFromUrl();
-    if (gistId) {
-        await updateGist(gistId, content);
-        alert('Gist updated successfully!');
-    } else {
-        const newGistId = await createGist(content);
-        updateUrlWithGistId(newGistId);
-        alert('New Gist created successfully!');
-    }
-});
-
-document.getElementById('load-gist-btn').addEventListener('click', async () => {
-    if (!accessToken) {
-        alert('Please login first');
-        return;
-    }
-    const gistId = prompt('Enter Gist ID:');
-    if (gistId) {
-        const content = await loadGist(gistId);
-        rawInput.value = content;
-        updateUrlWithGistId(gistId);
-        updateView();
-    }
-});
 
 // Tokenizer
 function tokenize(formula) {
@@ -826,28 +816,80 @@ rawInput.addEventListener('input', () => {
 rawModeBtn.addEventListener('click', switchToRawMode);
 viewModeBtn.addEventListener('click', switchToViewMode);
 
+document.getElementById('new-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = await createGist(content);
+    updateUrlWithGistId(gistId);
+    alert('New Gist created successfully!');
+});
+
+document.getElementById('save-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = getGistIdFromUrl();
+    if (gistId) {
+        await updateGist(gistId, content);
+        alert('Gist updated successfully!');
+    } else {
+        const newGistId = await createGist(content);
+        updateUrlWithGistId(newGistId);
+        alert('New Gist created successfully!');
+    }
+});
+
+document.getElementById('load-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const gistId = prompt('Enter Gist ID:');
+    if (gistId) {
+        const content = await loadGist(gistId);
+        rawInput.value = content;
+        updateUrlWithGistId(gistId);
+        updateView();
+    }
+});
+
+document.getElementById('login-btn').addEventListener('click', startAuth);
+
 // Initialize the app
 function init() {
     accessToken = localStorage.getItem('accessToken');
     updateLoginButton();
 
-    const gistId = getGistIdFromUrl();
-    if (gistId) {
-        loadGist(gistId).then(content => {
-            rawInput.value = content;
-            updateView();
-        }).catch(error => {
-            console.error('Error loading Gist:', error);
-            alert('Error loading Gist. Please check the Gist ID and try again.');
-        });
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+        handleCallback();
     } else {
-        const savedContent = loadFromLocalStorage();
-        if (savedContent) {
-            rawInput.value = savedContent;
-            updateView();
+        const gistId = getGistIdFromUrl();
+        if (gistId && accessToken) {
+            loadGist(gistId).then(content => {
+                rawInput.value = content;
+                updateView();
+            }).catch(error => {
+                console.error('Error loading Gist:', error);
+                alert('Error loading Gist. Please check the Gist ID and try again.');
+            });
+        } else {
+            const savedContent = loadFromLocalStorage();
+            if (savedContent) {
+                rawInput.value = savedContent;
+                updateView();
+            }
         }
     }
 }
 
-switchToRawMode();
 init();
+switchToRawMode();

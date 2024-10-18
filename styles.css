@@ -107,6 +107,21 @@ main {
     margin: 5px 0;
 }
 
+#user-info {
+    display: flex;
+    align-items: center;
+    margin-left: 10px;
+}
+
+#user-info.hidden {
+    display: none;
+}
+
+#user-avatar {
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
 #version-history {
     position: fixed;
     top: 50%;
@@ -121,19 +136,4 @@ main {
 #version-list {
     max-height: 300px;
     overflow-y: auto;
-}
-
-#user-info {
-    display: flex;
-    align-items: center;
-    margin-left: 10px;
-}
-
-#user-info.hidden {
-    display: none;
-}
-
-#user-avatar {
-    border-radius: 50%;
-    margin-right: 5px;
 }
