@@ -104,3 +104,24 @@ main {
 .floating-cell p {
     margin: 5px 0;
 }
+/* Add these styles to your existing styles.css file */
+
+#menu-bar button {
+    margin-right: 5px;
+}
+
+#version-history {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 20px;
+    z-index: 1000;
+}
+
+#version-list {
+    max-height: 300px;
+    overflow-y: auto;
+}

@@ -3,16 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Probabilistic Reasoning Webapp</title>
+    <title>Guessbook</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
-        <h1>Probabilistic Reasoning Webapp</h1>
+        <h1>Guessbook</h1>
         <div id="menu-bar">
             <button id="raw-mode-btn">Raw</button>
             <button id="view-mode-btn">View</button>
+            <button id="new-gist-btn">New Gist</button>
+            <button id="save-gist-btn">Save Gist</button>
+            <button id="load-gist-btn">Load Gist</button>
+            <button id="login-btn">Login</button>
         </div>
     </header>
     <main>
@@ -25,6 +29,10 @@
             <div id="right-column"></div>
         </div>
     </main>
+    <div id="version-history" class="hidden">
+        <h2>Version History</h2>
+        <ul id="version-list"></ul>
+    </div>
     <script src="app.js"></script>
 </body>
 </html>

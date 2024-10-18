@@ -618,3 +618,220 @@ rawModeBtn.addEventListener('click', switchToRawMode);
 viewModeBtn.addEventListener('click', switchToViewMode);
 
 switchToRawMode();
+// Add these functions to your existing app.js file
+
+const CLIENT_ID = 'your_github_app_client_id';
+const GITHUB_API_URL = 'https://api.github.com';
+
+let accessToken = null;
+
+// Authentication functions
+async function startAuth() {
+    const response = await fetch('https://github.com/login/device/code', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            client_id: CLIENT_ID,
+            scope: 'gist',
+        }),
+    });
+    const data = await response.json();
+
+    // Display the user code and verification URL to the user
+    alert(`Please go to ${data.verification_uri} and enter the code: ${data.user_code}`);
+
+    // Poll for the access token
+    pollForAccessToken(data.device_code, data.interval);
+}
+
+async function pollForAccessToken(deviceCode, interval) {
+    const response = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            client_id: CLIENT_ID,
+            device_code: deviceCode,
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        }),
+    });
+    const data = await response.json();
+
+    if (data.error === 'authorization_pending') {
+        // Wait for the specified interval and try again
+        setTimeout(() => pollForAccessToken(deviceCode, interval), interval * 1000);
+    } else if (data.access_token) {
+        accessToken = data.access_token;
+        localStorage.setItem('accessToken', accessToken);
+        updateLoginButton();
+    } else {
+        alert('Authentication failed. Please try again.');
+    }
+}
+
+function logout() {
+    accessToken = null;
+    localStorage.removeItem('accessToken');
+    updateLoginButton();
+}
+
+function updateLoginButton() {
+    const loginBtn = document.getElementById('login-btn');
+    if (accessToken) {
+        loginBtn.textContent = 'Logout';
+        loginBtn.onclick = logout;
+    } else {
+        loginBtn.textContent = 'Login';
+        loginBtn.onclick = startAuth;
+    }
+}
+
+// Gist operations
+async function createGist(content) {
+    const response = await fetch(`${GITHUB_API_URL}/gists`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            files: {
+                'guessbook.md': {
+                    content: content,
+                },
+            },
+            public: false,
+            description: 'Guessbook document',
+        }),
+    });
+    const data = await response.json();
+    return data.id;
+}
+
+async function updateGist(gistId, content) {
+    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            files: {
+                'guessbook.md': {
+                    content: content,
+                },
+            },
+        }),
+    });
+    const data = await response.json();
+    return data.id;
+}
+
+async function loadGist(gistId) {
+    const response = await fetch(`${GITHUB_API_URL}/gists/${gistId}`, {
+        headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+        },
+    });
+    const data = await response.json();
+    return data.files['guessbook.md'].content;
+}
+
+// URL handling
+function getGistIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('gist');
+}
+
+function updateUrlWithGistId(gistId) {
+    const url = new URL(window.location);
+    url.searchParams.set('gist', gistId);
+    window.history.pushState({}, '', url);
+}
+
+// Local storage management
+function saveToLocalStorage(content) {
+    localStorage.setItem('guessbook_content', content);
+}
+
+function loadFromLocalStorage() {
+    return localStorage.getItem('guessbook_content');
+}
+
+// UI updates
+document.getElementById('new-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = await createGist(content);
+    updateUrlWithGistId(gistId);
+    alert('New Gist created successfully!');
+});
+
+document.getElementById('save-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const content = rawInput.value;
+    saveToLocalStorage(content);
+    const gistId = getGistIdFromUrl();
+    if (gistId) {
+        await updateGist(gistId, content);
+        alert('Gist updated successfully!');
+    } else {
+        const newGistId = await createGist(content);
+        updateUrlWithGistId(newGistId);
+        alert('New Gist created successfully!');
+    }
+});
+
+document.getElementById('load-gist-btn').addEventListener('click', async () => {
+    if (!accessToken) {
+        alert('Please login first');
+        return;
+    }
+    const gistId = prompt('Enter Gist ID:');
+    if (gistId) {
+        const content = await loadGist(gistId);
+        rawInput.value = content;
+        updateUrlWithGistId(gistId);
+        updateView();
+    }
+});
+
+// Initialize the app
+function init() {
+    accessToken = localStorage.getItem('accessToken');
+    updateLoginButton();
+
+    const gistId = getGistIdFromUrl();
+    if (gistId) {
+        loadGist(gistId).then(content => {
+            rawInput.value = content;
+            updateView();
+        }).catch(error => {
+            console.error('Error loading Gist:', error);
+            alert('Error loading Gist. Please check the Gist ID and try again.');
+        });
+    } else {
+        const savedContent = loadFromLocalStorage();
+        if (savedContent) {
+            rawInput.value = savedContent;
+            updateView();
+        }
+    }
+}
+
+init();
