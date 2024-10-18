@@ -6,7 +6,7 @@ import { debounce, showNotification, generatePastelColor } from './utils.js';
 const rawInput = document.getElementById('raw-input');
 const viewMode = document.getElementById('view-mode');
 const rawEditor = document.getElementById('raw-editor');
-const rawModeBtn = document.getElementById('raw-mode-btn');
+const editModeBtn = document.getElementById('edit-mode-btn');
 const viewModeBtn = document.getElementById('view-mode-btn');
 const saveBtn = document.getElementById('save-btn');
 const signinBtn = document.getElementById('signin-btn');
@@ -31,10 +31,10 @@ function updateURLWithFileId(fileId) {
     window.history.pushState({}, '', url);
 }
 
-function switchToRawMode() {
+function switchToEditMode() {
     rawEditor.classList.remove('hidden');
     viewMode.classList.add('hidden');
-    rawModeBtn.setAttribute('aria-pressed', 'true');
+    editModeBtn.setAttribute('aria-pressed', 'true');
     viewModeBtn.setAttribute('aria-pressed', 'false');
     clearArrows();
 }
@@ -42,7 +42,7 @@ function switchToRawMode() {
 function switchToViewMode() {
     rawEditor.classList.add('hidden');
     viewMode.classList.remove('hidden');
-    rawModeBtn.setAttribute('aria-pressed', 'false');
+    editModeBtn.setAttribute('aria-pressed', 'false');
     viewModeBtn.setAttribute('aria-pressed', 'true');
     updateView();
 }
@@ -299,7 +299,7 @@ window.addEventListener('beforeunload', (event) => {
     }
 });
 
-rawModeBtn.addEventListener('click', switchToRawMode);
+editModeBtn.addEventListener('click', switchToEditMode);
 viewModeBtn.addEventListener('click', switchToViewMode);
 saveBtn.addEventListener('click', handleSave);
 signinBtn.addEventListener('click', handleAuthClick);
@@ -345,4 +345,4 @@ if (savedTheme === 'true' || (savedTheme === null && prefersDarkScheme.matches))
     document.body.classList.add('dark-mode');
 }
 
-switchToRawMode();
+switchToEditMode();
