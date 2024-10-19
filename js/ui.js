@@ -91,7 +91,7 @@ export function updateCellValues(html, results, sensitivities, targetCell) {
         if (results[name]) {
             const values = results[name];
             const mean = values.reduce((a, b) => a + b) / values.length;
-            const sortedValues = values.sort((a, b) => a - b);
+            const sortedValues = [...values].sort((a, b) => a - b);
             const lowBound = sortedValues[Math.floor(values.length * 0.05)];
             const highBound = sortedValues[Math.floor(values.length * 0.95)];
 
@@ -118,7 +118,7 @@ export function updateCellValues(html, results, sensitivities, targetCell) {
 
 export function createDistributionChart(canvasId, data, color, fieldName) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-    const values = data.sort((a, b) => a - b);
+    const values = [...data].sort((a, b) => a - b);
     const buckets = 20;
     const bucketSize = (values[values.length - 1] - values[0]) / buckets;
     const counts = new Array(buckets).fill(0);
@@ -206,7 +206,7 @@ export function createSensitivityChart(canvasId, targetData, variableData, sensi
 
 export function createModalChart(canvasId, data, color, sensitivity = null) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-    const values = data.sort((a, b) => a - b);
+    const values = [...data].sort((a, b) => a - b);
     const buckets = 50;
     const bucketSize = (values[values.length - 1] - values[0]) / buckets;
     const counts = new Array(buckets).fill(0);
@@ -267,7 +267,7 @@ export function createModalChart(canvasId, data, color, sensitivity = null) {
 
 export function createFloatingCellContent(name, formula, results, sensitivity = null) {
     const values = results[name];
-    const sortedValues = values.sort((a, b) => a - b);
+    const sortedValues = [...values].sort((a, b) => a - b);
     const lowBound = sortedValues[Math.floor(values.length * 0.05)];
     const highBound = sortedValues[Math.floor(values.length * 0.95)];
     const mean = values.reduce((a, b) => a + b) / values.length;
