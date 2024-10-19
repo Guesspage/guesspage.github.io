@@ -1,3 +1,5 @@
+import { simpleLinearRegression } from './utils.js';
+
 export function parseMarkdown(markdown) {
     return parseParagraphs(markdown);
 }
@@ -82,18 +84,33 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, char => escapeChars[char]);
 }
 
-export function updateCellValues(html, results) {
+export function updateCellValues(html, results, sensitivities, targetCell) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     doc.querySelectorAll('.cell').forEach(cell => {
         const name = cell.id.replace('cell-', '');
         if (results[name]) {
             const values = results[name];
+            const mean = values.reduce((a, b) => a + b) / values.length;
             const sortedValues = values.sort((a, b) => a - b);
             const lowBound = sortedValues[Math.floor(values.length * 0.05)];
             const highBound = sortedValues[Math.floor(values.length * 0.95)];
 
-            cell.innerHTML = `${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}`;
+            cell.innerHTML = `
+                <span class="cell-mean">${mean.toFixed(2)}</span>
+                <span class="cell-range">${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</span>
+            `;
+
+            if (sensitivities && name in sensitivities) {
+                const sensitivity = sensitivities[name];
+                const rSquared = sensitivity.rSquared.toFixed(2);
+                const rSquaredClass = sensitivity.rSquared > 0.5 ? 'high-sensitivity' : 'low-sensitivity';
+                cell.innerHTML += `<span class="cell-sensitivity ${rSquaredClass}">r² = ${rSquared}</span>`;
+            }
+
             cell.classList.add('calculated');
+            if (name === targetCell) {
+                cell.classList.add('target-cell');
+            }
         }
     });
     return doc.body.innerHTML;
@@ -146,7 +163,120 @@ export function createDistributionChart(canvasId, data, color) {
     });
 }
 
-export function createFloatingCellContent(name, formula, results) {
+export function createSensitivityChart(canvasId, targetData, variableData, sensitivity) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+
+    const regression = simpleLinearRegression(variableData, targetData);
+    const regressionLine = variableData.map(x => regression.predict(x));
+
+    new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Data Points',
+                data: targetData.map((y, i) => ({ x: variableData[i], y })),
+                backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }, {
+                label: 'Regression Line',
+                data: variableData.map((x, i) => ({ x, y: regressionLine[i] })),
+                type: 'line',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)})`
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: { display: true, text: 'Variable Value' }
+                },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: 'Target Value' }
+                }
+            }
+        }
+    });
+}
+
+export function createModalChart(canvasId, data, color, sensitivity = null) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const values = data.sort((a, b) => a - b);
+    const buckets = 50;
+    const bucketSize = (values[values.length - 1] - values[0]) / buckets;
+    const counts = new Array(buckets).fill(0);
+
+    values.forEach(value => {
+        const bucketIndex = Math.min(Math.floor((value - values[0]) / bucketSize), buckets - 1);
+        counts[bucketIndex]++;
+    });
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: counts.map((_, i) => (values[0] + i * bucketSize).toFixed(2)),
+            datasets: [{
+                data: counts,
+                backgroundColor: color,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                annotation: sensitivity ? {
+                    annotations: {
+                        line1: {
+                            type: 'line',
+                            yMin: 0,
+                            yMax: Math.max(...counts),
+                            xMin: values[Math.floor(values.length * 0.05)],
+                            xMax: values[Math.floor(values.length * 0.05)],
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                        },
+                        line2: {
+                            type: 'line',
+                            yMin: 0,
+                            yMax: Math.max(...counts),
+                            xMin: values[Math.floor(values.length * 0.95)],
+                            xMax: values[Math.floor(values.length * 0.95)],
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                        }
+                    }
+                } : {}
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Value' }
+                },
+                y: {
+                    title: { display: true, text: 'Frequency' }
+                }
+            }
+        }
+    });
+}
+
+export function createFloatingCellContent(name, formula, results, sensitivity = null) {
     const values = results[name];
     const sortedValues = values.sort((a, b) => a - b);
     const lowBound = sortedValues[Math.floor(values.length * 0.05)];
@@ -154,11 +284,23 @@ export function createFloatingCellContent(name, formula, results) {
     const mean = values.reduce((a, b) => a + b) / values.length;
     const median = sortedValues[Math.floor(values.length / 2)];
 
-    return `
+    let content = `
         <h3>${name}</h3>
         <p>Formula: ${formula.repr()}</p>
-        <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
         <p>Mean: ${mean.toFixed(2)}</p>
         <p>Median: ${median.toFixed(2)}</p>
+        <p>90% range: ${lowBound.toFixed(2)} .. ${highBound.toFixed(2)}</p>
     `;
+
+    if (sensitivity) {
+        content += `
+            <p>Sensitivity:</p>
+            <p>r² = ${sensitivity.rSquared.toFixed(4)}</p>
+            <p>Slope = ${sensitivity.slope.toFixed(4)}</p>
+            <p>Intercept = ${sensitivity.intercept.toFixed(4)}</p>
+            <p>Beta = ${sensitivity.beta.toFixed(4)}</p>
+        `;
+    }
+
+    return content;
 }

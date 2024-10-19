@@ -1,4 +1,13 @@
-# Open tasks:
+# TODO
+
+## Known Bugs
+
+- Sensitivity analysis regression line should be removed (it's an abuse of chart feature)
+- The chart axes should be named after the field they belong to
+- Something is fishy with the sensitivity xy plot, if I show sensitivity xy chart for two different
+  normal distributed fields the graph makes a straight diagonal line when it should be a blob.
+- Something is going wrong with the placement of the info tab on the right. Charts are correct on the left though;
+  maybe compare the two?
 
 ## Miscellaneous
 

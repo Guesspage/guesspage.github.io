@@ -19,9 +19,10 @@ export function parseInput(input) {
     return cells;
 }
 
-export function generateResults(cells, iterations = 10000) {
+export function generateResults(cells, iterations = 10000, targetCell = null) {
     const results = {};
     const context = {};
+    const sensitivities = {};
 
     for (let i = 0; i < iterations; i++) {
         for (const [name, formula] of Object.entries(cells)) {
@@ -30,7 +31,28 @@ export function generateResults(cells, iterations = 10000) {
             results[name].push(context[name]);
         }
     }
-    return results;
+
+    if (targetCell) {
+        for (const [name, values] of Object.entries(results)) {
+            if (name !== targetCell) {
+                sensitivities[name] = calculateSensitivity(results[targetCell], values);
+            }
+        }
+
+        // Sort sensitivities by absolute beta value
+        const sortedSensitivities = Object.entries(sensitivities)
+            .sort(([, a], [, b]) => Math.abs(b.beta) - Math.abs(a.beta));
+
+        // Keep only top 5 most sensitive variables
+        const topSensitivities = {};
+        sortedSensitivities.slice(0, 5).forEach(([name, sensitivity]) => {
+            topSensitivities[name] = sensitivity;
+        });
+
+        return { results, sensitivities: topSensitivities };
+    }
+
+    return { results, sensitivities: null };
 }
 
 function tokenize(formula) {
@@ -216,4 +238,28 @@ function normalRandom(percentile5, percentile95) {
     while (v === 0) v = Math.random();
     let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     return num * stdDev + mean;
+}
+
+function calculateSensitivity(targetValues, variableValues) {
+    const n = targetValues.length;
+    const meanX = variableValues.reduce((a, b) => a + b) / n;
+    const meanY = targetValues.reduce((a, b) => a + b) / n;
+
+    let ssxx = 0, ssyy = 0, ssxy = 0;
+    for (let i = 0; i < n; i++) {
+        ssxx += (variableValues[i] - meanX) ** 2;
+        ssyy += (targetValues[i] - meanY) ** 2;
+        ssxy += (variableValues[i] - meanX) * (targetValues[i] - meanY);
+    }
+
+    const slope = ssxy / ssxx;
+    const intercept = meanY - slope * meanX;
+    const rSquared = (ssxy ** 2) / (ssxx * ssyy);
+
+    // Calculate standardized regression coefficient (beta)
+    const stdDevX = Math.sqrt(ssxx / (n - 1));
+    const stdDevY = Math.sqrt(ssyy / (n - 1));
+    const beta = slope * (stdDevX / stdDevY);
+
+    return { slope, intercept, rSquared, beta };
 }

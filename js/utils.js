@@ -49,3 +49,24 @@ function stringToHash(str) {
     }
     return Math.abs(hash);
 }
+
+export function simpleLinearRegression(x, y) {
+    const n = x.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < n; i++) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumXX += x[i] * x[i];
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    return {
+        slope: slope,
+        intercept: intercept,
+        predict: function(x) {
+            return slope * x + intercept;
+        }
+    };
+}

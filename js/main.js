@@ -1,6 +1,6 @@
 import { initializeGoogleDrive, handleAuthClick, handleSave, handleLoad } from './google-drive.js';
 import { parseInput, generateResults } from './calculator.js';
-import { parseMarkdown, updateCellValues, createDistributionChart, createFloatingCellContent } from './ui.js';
+import { parseMarkdown, updateCellValues, createDistributionChart, createFloatingCellContent, createSensitivityChart, createModalChart } from './ui.js';
 import { debounce, showNotification, generatePastelColor } from './utils.js';
 
 const rawInput = document.getElementById('raw-input');
@@ -16,6 +16,9 @@ const helpModal = document.getElementById('help-modal');
 const closeHelpModal = document.getElementById('close-help-modal');
 
 let currentFileId = null;
+let targetCell = null;
+let popupTimeout;
+let activePopup;
 
 function saveToLocalStorage() {
     localStorage.setItem('guessbook_content', rawInput.value);
@@ -50,10 +53,10 @@ function switchToViewMode() {
 function updateView() {
     const input = rawInput.value;
     const cells = parseInput(input);
-    const results = generateResults(cells);
+    const { results, sensitivities } = generateResults(cells, 10000, targetCell);
 
     let html = parseMarkdown(input);
-    html = updateCellValues(html, results);
+    html = updateCellValues(html, results, sensitivities, targetCell);
 
     const centerColumn = document.getElementById('center-column');
     const leftColumn = document.getElementById('left-column');
@@ -82,14 +85,28 @@ function updateView() {
             chartContainers[name] = chartContainer;
 
             const cellColor = generatePastelColor(name);
-            createDistributionChart(`chart-${name}`, results[name], cellColor);
+            if (targetCell && name !== targetCell) {
+                createSensitivityChart(`chart-${name}`, results[targetCell], results[name], sensitivities?.[name]);
+            } else {
+                createDistributionChart(`chart-${name}`, results[name], cellColor);
+            }
         }
 
         if (!floatingCells[name]) {
             const floatingCell = document.createElement('div');
             floatingCell.className = 'floating-cell';
             floatingCell.id = `floating-${name}`;
-            floatingCell.innerHTML = createFloatingCellContent(name, cells[name], results);
+            floatingCell.innerHTML = createFloatingCellContent(name, cells[name], results, sensitivities?.[name]);
+
+            const setTargetBtn = document.createElement('button');
+            setTargetBtn.className = 'set-target-btn';
+            setTargetBtn.textContent = targetCell === name ? 'Unset Target' : 'Set as Target';
+            setTargetBtn.addEventListener('click', () => {
+                targetCell = targetCell === name ? null : name;
+                updateView();
+            });
+            floatingCell.appendChild(setTargetBtn);
+
             rightColumn.appendChild(floatingCell);
             floatingCells[name] = floatingCell;
 
@@ -149,7 +166,7 @@ function updateView() {
                 const floatingCell = floatingCells[name];
 
                 if (chartContainer && floatingCell) {
-                    const chartHeight = 150;
+                    const chartHeight = 200;
                     const chartTop = Math.max(cellCenterY - chartHeight / 2, nextChartY);
                     chartContainer.style.top = `${chartTop}px`;
                     chartContainer.style.height = `${chartHeight}px`;
@@ -178,12 +195,67 @@ function updateView() {
 
         cell.addEventListener('mouseenter', () => {
             setCellHoverActive(name, true);
+            clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+                showPopupMenu(cell, name);
+            }, 500); // Show popup after 500ms
         });
 
         cell.addEventListener('mouseleave', () => {
             setCellHoverActive(name, false);
+            clearTimeout(popupTimeout);
+            // Hide popup after a short delay to allow moving to the popup
+            setTimeout(() => {
+                if (activePopup && !activePopup.matches(':hover')) {
+                    activePopup.style.display = 'none';
+                }
+            }, 100);
         });
     });
+
+    function showPopupMenu(cell, name) {
+        if (activePopup) {
+            activePopup.style.display = 'none';
+        }
+
+        const popup = document.createElement('div');
+        popup.className = 'cell-popup';
+        popup.innerHTML = `
+            <button class="expand-btn">Expand</button>
+            <button class="sensitivity-btn">${targetCell === name ? 'Unset Target' : 'Set as Target'}</button>
+        `;
+
+        document.body.appendChild(popup);
+
+        const expandBtn = popup.querySelector('.expand-btn');
+        const sensitivityBtn = popup.querySelector('.sensitivity-btn');
+
+        expandBtn.addEventListener('click', () => {
+            showModalChart(name, results[name], generatePastelColor(name), sensitivities?.[name]);
+            popup.style.display = 'none';
+        });
+
+        sensitivityBtn.addEventListener('click', () => {
+            targetCell = targetCell === name ? null : name;
+            updateView();
+            popup.style.display = 'none';
+        });
+
+        const cellRect = cell.getBoundingClientRect();
+        popup.style.left = `${(cellRect.right + cellRect.left) / 2}px`;
+        popup.style.top = `${cellRect.bottom}px`;
+        popup.style.display = 'block';
+
+        activePopup = popup;
+
+        popup.addEventListener('mouseleave', () => {
+            setTimeout(() => {
+                if (!cell.matches(':hover')) {
+                    popup.style.display = 'none';
+                }
+            }, 100);
+        });
+    }
 }
 
 function createArrowsSVG() {
@@ -257,6 +329,45 @@ function createArrowheadMarker(svg) {
     marker.appendChild(polygon);
     defs.appendChild(marker);
     svg.appendChild(defs);
+}
+
+function showModalChart(name, data, color, sensitivity) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>${name}</h2>
+            <canvas id="modal-chart-${name}"></canvas>
+            <div class="sensitivity-info"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = modal.querySelector('.close');
+    closeBtn.addEventListener('click', () => {
+        modal.remove();
+    });
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.remove();
+        }
+    });
+
+    createModalChart(`modal-chart-${name}`, data, color, sensitivity);
+
+    if (sensitivity) {
+        const sensitivityInfo = modal.querySelector('.sensitivity-info');
+        sensitivityInfo.innerHTML = `
+            <p>r² = ${sensitivity.rSquared.toFixed(4)}</p>
+            <p>Slope = ${sensitivity.slope.toFixed(4)}</p>
+            <p>Intercept = ${sensitivity.intercept.toFixed(4)}</p>
+            <p>Beta = ${sensitivity.beta.toFixed(4)}</p>
+        `;
+    }
+
+    modal.style.display = 'block';
 }
 
 rawInput.addEventListener('input', debounce(() => {
