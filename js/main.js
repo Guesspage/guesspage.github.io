@@ -153,13 +153,15 @@ function updateView() {
         arrowsSVG.innerHTML = '';
         createArrowheadMarker(arrowsSVG);
 
-        const viewAreaRect = document.getElementById('view-mode').getBoundingClientRect();
+        const viewMode = document.getElementById('view-mode');
+        const viewModeRect = viewMode.getBoundingClientRect();
 
         cellElements.forEach(cell => {
             const name = cell.id.replace('cell-', '');
+
             if (clickActiveCells[name] || hoverActiveCells[name]) {
                 const cellRect = cell.getBoundingClientRect();
-                const cellTop = cellRect.top - viewAreaRect.top;
+                const cellTop = cellRect.top - viewModeRect.top + viewMode.scrollTop;
                 const cellCenterY = cellTop + cellRect.height / 2;
 
                 const chartContainer = chartContainers[name];
@@ -179,6 +181,8 @@ function updateView() {
 
                     drawArrow(arrowsSVG, cell, chartContainer, true);
                     drawArrow(arrowsSVG, cell, floatingCell, false);
+                } else {
+                    console.log(`Missing chartContainer or floatingCell for ${name}`);
                 }
             }
         });
@@ -276,7 +280,7 @@ function createArrowsSVG() {
 function drawArrow(svg, startEl, endEl, isLeftSide) {
     const startRect = startEl.getBoundingClientRect();
     const endRect = endEl.getBoundingClientRect();
-    const viewAreaRect = document.getElementById('view-mode').getBoundingClientRect();
+    const viewAreaRect = document.getElementById('center-column').getBoundingClientRect();
 
     const start = {
         x: startRect.left + startRect.width / 2,
