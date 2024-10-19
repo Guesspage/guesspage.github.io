@@ -116,7 +116,7 @@ export function updateCellValues(html, results, sensitivities, targetCell) {
     return doc.body.innerHTML;
 }
 
-export function createDistributionChart(canvasId, data, color) {
+export function createDistributionChart(canvasId, data, color, fieldName) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     const values = data.sort((a, b) => a - b);
     const buckets = 20;
@@ -148,7 +148,7 @@ export function createDistributionChart(canvasId, data, color) {
                     display: true,
                     title: {
                         display: true,
-                        text: 'Value'
+                        text: fieldName
                     }
                 },
                 y: {
@@ -163,11 +163,8 @@ export function createDistributionChart(canvasId, data, color) {
     });
 }
 
-export function createSensitivityChart(canvasId, targetData, variableData, sensitivity) {
+export function createSensitivityChart(canvasId, targetData, variableData, sensitivity, variableName, targetName) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-
-    const regression = simpleLinearRegression(variableData, targetData);
-    const regressionLine = variableData.map(x => regression.predict(x));
 
     new Chart(ctx, {
         type: 'scatter',
@@ -176,13 +173,6 @@ export function createSensitivityChart(canvasId, targetData, variableData, sensi
                 label: 'Data Points',
                 data: targetData.map((y, i) => ({ x: variableData[i], y })),
                 backgroundColor: 'rgba(75, 192, 192, 0.6)'
-            }, {
-                label: 'Regression Line',
-                data: variableData.map((x, i) => ({ x, y: regressionLine[i] })),
-                type: 'line',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 2,
-                fill: false
             }]
         },
         options: {
@@ -195,20 +185,19 @@ export function createSensitivityChart(canvasId, targetData, variableData, sensi
                     }
                 },
                 legend: {
-                    display: true,
-                    position: 'top'
+                    display: false
                 }
             },
             scales: {
                 x: {
                     type: 'linear',
                     position: 'bottom',
-                    title: { display: true, text: 'Variable Value' }
+                    title: { display: true, text: variableName }
                 },
                 y: {
                     type: 'linear',
                     position: 'left',
-                    title: { display: true, text: 'Target Value' }
+                    title: { display: true, text: targetName }
                 }
             }
         }

@@ -21,14 +21,19 @@ export function parseInput(input) {
 
 export function generateResults(cells, iterations = 10000, targetCell = null) {
     const results = {};
-    const context = {};
     const sensitivities = {};
 
+    // Initialize results arrays
+    for (const name of Object.keys(cells)) {
+        results[name] = new Array(iterations);
+    }
+
+    // Generate results for each iteration
     for (let i = 0; i < iterations; i++) {
+        const context = {}; // New context for each iteration
         for (const [name, formula] of Object.entries(cells)) {
-            if (!results[name]) results[name] = [];
             context[name] = formula.calculate(context);
-            results[name].push(context[name]);
+            results[name][i] = context[name];
         }
     }
 

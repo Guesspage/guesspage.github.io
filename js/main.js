@@ -86,9 +86,9 @@ function updateView() {
 
             const cellColor = generatePastelColor(name);
             if (targetCell && name !== targetCell) {
-                createSensitivityChart(`chart-${name}`, results[targetCell], results[name], sensitivities?.[name]);
+                createSensitivityChart(`chart-${name}`, results[targetCell], results[name], sensitivities?.[name], name, targetCell);
             } else {
-                createDistributionChart(`chart-${name}`, results[name], cellColor);
+                createDistributionChart(`chart-${name}`, results[name], cellColor, name);
             }
         }
 
