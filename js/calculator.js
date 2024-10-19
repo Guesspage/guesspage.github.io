@@ -37,7 +37,7 @@ export function generateResults(cells, iterations = 10000, targetCell = null) {
         }
     }
 
-    if (targetCell) {
+    if (targetCell && targetCell in results) {
         for (const [name, values] of Object.entries(results)) {
             if (name !== targetCell) {
                 sensitivities[name] = calculateSensitivity(results[targetCell], values);
@@ -61,7 +61,7 @@ export function generateResults(cells, iterations = 10000, targetCell = null) {
 }
 
 function tokenize(formula) {
-    const regex = /([\+\-\*\/\(\)\,]|\s+|[A-Za-z_][A-Za-z0-9_]*|[0-9]*\.?[0-9]+)/g;
+    const regex = /(>=|<=|==|!=|AND|OR|NOT|[-+*/%()<>^,.!]|\s+|[A-Za-z_][A-Za-z0-9_]*|[0-9]*\.?[0-9]+)/g;
     return formula.match(regex)
         .filter(token => token.trim() !== '')
         .map(token => token.trim());
@@ -81,7 +81,7 @@ function parse(tokens, definedVariables) {
 
     function parseIdentifier() {
         const name = tokens[current++];
-        if (!definedVariables.has(name)) {
+        if (!definedVariables.has(name) && !isBuiltInFunction(name)) {
             throw new Error(`Variable "${name}" is used before it's defined`);
         }
         return {
@@ -128,42 +128,10 @@ function parse(tokens, definedVariables) {
         }
         current++; // Skip closing parenthesis
 
-        switch (name) {
-            case 'normal':
-                return {
-                    type: 'function',
-                    name: 'normal',
-                    args: args,
-                    repr: function() { return `normal(${this.args.map(arg => arg.repr()).join(', ')})`; },
-                    calculate: function(context) {
-                        if (this.args.length !== 2) {
-                            throw new Error('normal function expects 2 arguments');
-                        }
-                        return normalRandom(this.args[0].calculate(context), this.args[1].calculate(context));
-                    }
-                };
-            case 'min':
-                return {
-                    type: 'function',
-                    name: 'min',
-                    args: args,
-                    repr: function() { return `min(${this.args.map(arg => arg.repr()).join(', ')})`; },
-                    calculate: function(context) {
-                        return Math.min(...this.args.map(arg => arg.calculate(context)));
-                    }
-                };
-            case 'max':
-                return {
-                    type: 'function',
-                    name: 'max',
-                    args: args,
-                    repr: function() { return `max(${this.args.map(arg => arg.repr()).join(', ')})`; },
-                    calculate: function(context) {
-                        return Math.max(...this.args.map(arg => arg.calculate(context)));
-                    }
-                };
-            default:
-                throw new Error(`Unknown function: ${name}`);
+        if (isBuiltInFunction(name)) {
+            return new functionClasses[name](name, args);
+        } else {
+            throw new Error(`Unknown function: ${name}`);
         }
     }
 
@@ -182,11 +150,29 @@ function parse(tokens, definedVariables) {
         }
     }
 
-    function parseTerm() {
+    function parseExp() {
         let left = parseFactor();
-        while (tokens[current] === '*' || tokens[current] === '/') {
+        while (tokens[current] === '^') {
             const operator = tokens[current++];
             const right = parseFactor();
+            left = {
+                type: 'operation',
+                left: left,
+                right: right,
+                repr: function() { return `${this.left.repr()} ^ ${this.right.repr()}`; },
+                calculate: function(context) {
+                    return Math.pow(this.left.calculate(context), this.right.calculate(context));
+                }
+            };
+        }
+        return left;
+    }
+
+    function parseMulDivRem() {
+        let left = parseExp();
+        while (tokens[current] === '*' || tokens[current] === '/' || tokens[current] === '%') {
+            const operator = tokens[current++];
+            const right = parseExp();
             left = {
                 type: 'operation',
                 operator: operator,
@@ -196,8 +182,10 @@ function parse(tokens, definedVariables) {
                 calculate: function(context) {
                     if (this.operator === '*') {
                         return this.left.calculate(context) * this.right.calculate(context);
-                    } else {
+                    } else if (this.operator === '/') {
                         return this.left.calculate(context) / this.right.calculate(context);
+                    } else {
+                        return this.left.calculate(context) % this.right.calculate(context);
                     }
                 }
             };
@@ -205,11 +193,11 @@ function parse(tokens, definedVariables) {
         return left;
     }
 
-    function parseExpression() {
-        let left = parseTerm();
+    function parseAddSub() {
+        let left = parseMulDivRem();
         while (tokens[current] === '+' || tokens[current] === '-') {
             const operator = tokens[current++];
-            const right = parseTerm();
+            const right = parseMulDivRem();
             left = {
                 type: 'operation',
                 operator: operator,
@@ -228,6 +216,89 @@ function parse(tokens, definedVariables) {
         return left;
     }
 
+    function parseComparison() {
+        let left = parseAddSub();
+        while (['>', '<', '>=', '<=', '==', '!='].includes(tokens[current])) {
+            const operator = tokens[current++];
+            const right = parseAddSub();
+            left = {
+                type: 'comparison',
+                operator: operator,
+                left: left,
+                right: right,
+                repr: function() { return `${this.left.repr()} ${this.operator} ${this.right.repr()}`; },
+                calculate: function(context) {
+                    const leftValue = this.left.calculate(context);
+                    const rightValue = this.right.calculate(context);
+                    switch (this.operator) {
+                        case '>': return leftValue > rightValue;
+                        case '<': return leftValue < rightValue;
+                        case '>=': return leftValue >= rightValue;
+                        case '<=': return leftValue <= rightValue;
+                        case '==': return leftValue === rightValue;
+                        case '!=': return leftValue !== rightValue;
+                    }
+                }
+            };
+        }
+        return left;
+    }
+
+    function parseLogicalAnd() {
+        let left = parseComparison();
+        while (tokens[current] === 'AND') {
+            current++; // Skip 'AND'
+            const right = parseComparison();
+            left = {
+                type: 'logical',
+                operator: 'AND',
+                left: left,
+                right: right,
+                repr: function() { return `${this.left.repr()} AND ${this.right.repr()}`; },
+                calculate: function(context) {
+                    return this.left.calculate(context) && this.right.calculate(context);
+                }
+            };
+        }
+        return left;
+    }
+
+    function parseLogicalOr() {
+        let left = parseLogicalAnd();
+        while (tokens[current] === 'OR') {
+            current++; // Skip 'OR'
+            const right = parseLogicalAnd();
+            left = {
+                type: 'logical',
+                operator: 'OR',
+                left: left,
+                right: right,
+                repr: function() { return `${this.left.repr()} OR ${this.right.repr()}`; },
+                calculate: function(context) {
+                    return this.left.calculate(context) || this.right.calculate(context);
+                }
+            };
+        }
+        return left;
+    }
+
+    function parseExpression() {
+        if (tokens[current] === 'NOT') {
+            current++; // Skip 'NOT'
+            const expr = parseLogicalOr();
+            return {
+                type: 'logical',
+                operator: 'NOT',
+                expr: expr,
+                repr: function() { return `NOT ${this.expr.repr()}`; },
+                calculate: function(context) {
+                    return !this.expr.calculate(context);
+                }
+            };
+        }
+        return parseLogicalOr();
+    }
+
     const result = parseExpression();
     if (current < tokens.length) {
         throw new Error(`Unexpected token at end: ${tokens[current]}`);
@@ -235,14 +306,168 @@ function parse(tokens, definedVariables) {
     return result;
 }
 
-function normalRandom(percentile5, percentile95) {
-    const mean = (percentile5 + percentile95) / 2;
-    const stdDev = (percentile95 - percentile5) / (2 * 1.645); // 1.645 is the z-score for the 95th percentile
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-    let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-    return num * stdDev + mean;
+class Function {
+    constructor(name, args) {
+        this.name = name;
+        this.args = args;
+    }
+
+    repr() {
+        return `${this.name}(${this.args.map(arg => arg.repr()).join(', ')})`;
+    }
+
+    calculate(context) {
+        const argValues = this.args.map(arg => arg.calculate(context));
+        return this.evaluate(argValues);
+    }
+
+    evaluate(args) {
+        throw new Error('evaluate method must be implemented by subclasses');
+    }
+}
+
+class IfFunction extends Function {
+    evaluate([condition, trueValue, falseValue]) {
+        return condition ? trueValue : falseValue;
+    }
+}
+
+class NormalFunction extends Function {
+    evaluate([mean, stdDev]) {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        return num * stdDev + mean;
+    }
+}
+
+class UniformFunction extends Function {
+    evaluate([min, max]) {
+        return Math.random() * (max - min) + min;
+    }
+}
+
+class RoundFunction extends Function {
+    evaluate([arg]) {
+        return Math.round(arg);
+    }
+}
+
+class TriangularFunction extends Function {
+    evaluate([min, mode, max]) {
+        const u = Math.random();
+        const f = (mode - min) / (max - min);
+        if (u < f) {
+            return min + Math.sqrt(u * (max - min) * (mode - min));
+        } else {
+            return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+        }
+    }
+}
+
+class MinFunction extends Function {
+    evaluate(args) {
+        return Math.min(...args);
+    }
+}
+
+class MaxFunction extends Function {
+    evaluate(args) {
+        return Math.max(...args);
+    }
+}
+
+class MeanFunction extends Function {
+    evaluate(args) {
+        return args.reduce((a, b) => a + b) / args.length;
+    }
+}
+
+class MedianFunction extends Function {
+    evaluate(args) {
+        const sorted = [...args].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+}
+
+class StdevFunction extends Function {
+    evaluate(args) {
+        const n = args.length;
+        const mean = args.reduce((a, b) => a + b) / n;
+        return Math.sqrt(args.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
+    }
+}
+
+class PercentileFunction extends Function {
+    evaluate([p, ...arr]) {
+        if (p < 0 || p > 100) {
+            throw new Error('Percentile must be between 0 and 100');
+        }
+        const sorted = [...arr].sort((a, b) => a - b);
+        const index = (p / 100) * (sorted.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const weight = index % 1;
+        if (upper === lower) {
+            return sorted[index];
+        }
+        return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    }
+}
+
+class LogFunction extends Function {
+    evaluate([x]) {
+        return Math.log(x);
+    }
+}
+
+class ExpFunction extends Function {
+    evaluate([x]) {
+        return Math.exp(x);
+    }
+}
+
+class SinFunction extends Function {
+    evaluate([x]) {
+        return Math.sin(x);
+    }
+}
+
+class CosFunction extends Function {
+    evaluate([x]) {
+        return Math.cos(x);
+    }
+}
+
+class TanFunction extends Function {
+    evaluate([x]) {
+        return Math.tan(x);
+    }
+}
+
+const functionClasses = {
+    if: IfFunction,
+    normal: NormalFunction,
+    uniform: UniformFunction,
+    round: RoundFunction,
+    triangular: TriangularFunction,
+    min: MinFunction,
+    max: MaxFunction,
+    mean: MeanFunction,
+    median: MedianFunction,
+    stdev: StdevFunction,
+    percentile: PercentileFunction,
+    log: LogFunction,
+    exp: ExpFunction,
+    sin: SinFunction,
+    cos: CosFunction,
+    tan: TanFunction
+};
+
+function isBuiltInFunction(name) {
+    return name in functionClasses;
 }
 
 function calculateSensitivity(targetValues, variableValues) {

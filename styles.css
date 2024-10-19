@@ -220,30 +220,67 @@ main {
     width: 80%;
     max-width: 800px;
     border-radius: 8px;
+    position: relative;
 }
 
-.modal-content h2 {
-    margin-top: 0;
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
 }
 
-.modal-content canvas {
+.modal-header h2 {
+    margin: 0;
+}
+
+.close-btn {
+    color: var(--text-color);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.chart-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-modal canvas {
     width: 100% !important;
     height: 400px !important;
 }
 
-.close {
-    color: var(--text-color);
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
+.chart-modal .sensitivity-info {
+    margin-top: 15px;
 }
 
-.close:hover,
-.close:focus {
-    color: var(--primary-color);
-    text-decoration: none;
-    cursor: pointer;
+#help-modal .modal-body {
+    padding: 0 20px;
+}
+
+#help-modal .modal-body h3 {
+    margin-top: 20px;
+}
+
+#help-modal .modal-body ul {
+    padding-left: 20px;
 }
 
 .sensitivity-info {
@@ -276,7 +313,6 @@ main {
     background-color: var(--primary-color-dark);
 }
 
-/* Tooltip styles */
 .tooltip {
     position: relative;
     display: inline-block;
@@ -291,7 +327,6 @@ main {
     border-radius: 6px;
     padding: 5px;
     position: absolute;
-
     bottom: 125%;
     left: 50%;
     margin-left: -60px;
@@ -327,8 +362,28 @@ main {
     color: var(--text-color);
 }
 
+#credit {
+    margin-left: 20px;
+    color: color-mix(in srgb, var(--text-color), var(--border-color) 60%);
+    font-style: italic;
+}
+
 .cell-popup button:hover {
     background-color: var(--secondary-color);
+}
+
+#example-selector {
+    padding: 5px;
+    margin-left: 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 14px;
+}
+
+#example-selector:hover {
+    border-color: var(--primary-color);
 }
 
 @media (prefers-color-scheme: dark) {

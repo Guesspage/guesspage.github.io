@@ -2,6 +2,7 @@ import { initializeGoogleDrive, handleAuthClick, handleSave, handleLoad } from '
 import { parseInput, generateResults } from './calculator.js';
 import { parseMarkdown, updateCellValues, createDistributionChart, createFloatingCellContent, createSensitivityChart, createModalChart } from './ui.js';
 import { debounce, showNotification, generatePastelColor } from './utils.js';
+import { loadExample } from './examples.js';
 
 const rawInput = document.getElementById('raw-input');
 const viewMode = document.getElementById('view-mode');
@@ -85,7 +86,7 @@ function updateView() {
             chartContainers[name] = chartContainer;
 
             const cellColor = generatePastelColor(name);
-            if (targetCell && name !== targetCell) {
+            if (targetCell in results && name !== targetCell) {
                 createSensitivityChart(`chart-${name}`, results[targetCell], results[name], sensitivities?.[name], name, targetCell);
             } else {
                 createDistributionChart(`chart-${name}`, results[name], cellColor, name);
@@ -100,7 +101,7 @@ function updateView() {
 
             const setTargetBtn = document.createElement('button');
             setTargetBtn.className = 'set-target-btn';
-            setTargetBtn.textContent = targetCell === name ? 'Unset Target' : 'Set as Target';
+            setTargetBtn.textContent = targetCell === name ? '-Sensitivity' : '+Sensitivity';
             setTargetBtn.addEventListener('click', () => {
                 targetCell = targetCell === name ? null : name;
                 updateView();
@@ -226,7 +227,7 @@ function updateView() {
         popup.className = 'cell-popup';
         popup.innerHTML = `
             <button class="expand-btn">Expand</button>
-            <button class="sensitivity-btn">${targetCell === name ? 'Unset Target' : 'Set as Target'}</button>
+            <button class="sensitivity-btn">${targetCell === name ? '-Sensitivity' : '+Sensitivity'}</button>
         `;
 
         document.body.appendChild(popup);
@@ -337,18 +338,20 @@ function createArrowheadMarker(svg) {
 
 function showModalChart(name, data, color, sensitivity) {
     const modal = document.createElement('div');
-    modal.className = 'modal';
+    modal.className = 'modal chart-modal';
     modal.innerHTML = `
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>${name}</h2>
+            <div class="modal-header">
+                <h2>${name}</h2>
+                <button class="close-btn">&times;</button>
+            </div>
             <canvas id="modal-chart-${name}"></canvas>
             <div class="sensitivity-info"></div>
         </div>
     `;
     document.body.appendChild(modal);
 
-    const closeBtn = modal.querySelector('.close');
+    const closeBtn = modal.querySelector('.close-btn');
     closeBtn.addEventListener('click', () => {
         modal.remove();
     });
@@ -459,5 +462,15 @@ const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 if (savedTheme === 'true' || (savedTheme === null && prefersDarkScheme.matches)) {
     document.body.classList.add('dark-mode');
 }
+
+document.getElementById('example-selector').addEventListener('change', async (event) => {
+    const selectedExample = event.target.value;
+    if (selectedExample) {
+        const exampleContent = await loadExample(selectedExample);
+        rawInput.value = exampleContent;
+        updateView();
+        switchToEditMode();
+    }
+});
 
 switchToEditMode();

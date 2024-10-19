@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guesspage</title>
+    <title>Guesspage - Created by Claude 3.5 Sonnet</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
@@ -31,6 +31,20 @@
                 <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode" title="Toggle Theme">
                     <i class="fas fa-adjust"></i>
                 </button>
+                <select id="example-selector" aria-label="Select an example scenario">
+                    <option value="">Select an example...</option>
+                    <option value="basic-probability">Basic Probability</option>
+                    <option value="project-planning">Project Planning</option>
+                    <option value="investment-portfolio">Investment Portfolio</option>
+                    <option value="sales-forecast">Sales Forecast</option>
+                    <option value="manufacturing-process">Manufacturing Process</option>
+                    <option value="risk-assessment">Risk Assessment</option>
+                    <option value="market-research">Market Research</option>
+                    <option value="health-study">Health Study</option>
+                    <option value="environmental-impact">Environmental Impact</option>
+                    <option value="startup-valuation">Startup Valuation</option>
+                </select>
+                <span id="credit">Created by Claude 3.5 Sonnet</span>
             </div>
         </div>
         <div id="user-section">
@@ -79,16 +93,49 @@
                 </ul>
                 <h3>Syntax:</h3>
                 <ul>
-                    <li>Cells can reference fields that have come before.
+                    <li>Cells can reference fields that have come before.</li>
                     <li><code>[cellname = value]</code>: Define a cell with a fixed value</li>
-                    <li><code>[cellname = normal(min, max)]</code>: Define a cell with a normal distribution</li>
+                    <li><code>[cellname = normal(mean, stddev)]</code>: Define a cell with a normal distribution</li>
+                    <li><code>[cellname = uniform(min, max)]</code>: Define a cell with a uniform distribution</li>
+                    <li><code>[cellname = triangular(min, mode, max)]</code>: Define a cell with a triangular distribution</li>
                     <li><code>[cellname = othercell * 2]</code>: Define a cell based on other cells</li>
+                    <li><code>[cellname = if(condition, value_if_true, value_if_false)]</code>: Conditional statement</li>
                     <li><code>*bold text*</code>: Create bold text</li>
                     <li><code>_italic text_</code>: Create italic text</li>
                     <li><code>`code`</code>: Inline code</li>
                     <li><code># Heading 1</code>: Create a top-level heading</li>
                     <li><code>## Heading 2</code>: Create a second-level heading</li>
                     <li><code>[Link text](URL)</code>: Create a hyperlink</li>
+                </ul>
+                <h3>Built-in Functions:</h3>
+                <ul>
+                    <li><code>normal(mean, stddev)</code>: Generate a value from a normal distribution</li>
+                    <li><code>uniform(min, max)</code>: Generate a value from a uniform distribution</li>
+                    <li><code>triangular(min, mode, max)</code>: Generate a value from a triangular distribution</li>
+                    <li><code>min(a, b, ...)</code>: Return the minimum of the given values</li>
+                    <li><code>max(a, b, ...)</code>: Return the maximum of the given values</li>
+                    <li><code>mean(a, b, ...)</code>: Calculate the arithmetic mean of the given values</li>
+                    <li><code>median(a, b, ...)</code>: Calculate the median of the given values</li>
+                    <li><code>stdev(a, b, ...)</code>: Calculate the standard deviation of the given values</li>
+                    <li><code>percentile(p, a, b, ...)</code>: Calculate the p-th percentile of the given values</li>
+                    <li><code>log(x)</code>: Calculate the natural logarithm of x</li>
+                    <li><code>exp(x)</code>: Calculate e raised to the power of x</li>
+                    <li><code>sin(x)</code>, <code>cos(x)</code>, <code>tan(x)</code>: Trigonometric functions</li>
+                </ul>
+                <h3>Logical Operators:</h3>
+                <ul>
+                    <li><code>AND</code>: Logical AND operator</li>
+                    <li><code>OR</code>: Logical OR operator</li>
+                    <li><code>NOT</code>: Logical NOT operator</li>
+                </ul>
+                <h3>Comparison Operators:</h3>
+                <ul>
+                    <li><code>==</code>: Equal to</li>
+                    <li><code>!=</code>: Not equal to</li>
+                    <li><code>&lt;</code>: Less than</li>
+                    <li><code>&gt;</code>: Greater than</li>
+                    <li><code>&lt;=</code>: Less than or equal to</li>
+                    <li><code>&gt;=</code>: Greater than or equal to</li>
                 </ul>
                 <h3>Keyboard Shortcuts:</h3>
                 <ul>
